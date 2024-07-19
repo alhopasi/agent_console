@@ -1,11 +1,13 @@
-from flask import render_template
+from flask import Flask, render_template
 from flask_socketio import SocketIO, send
-from agent_console import console
-from agent_console import app
+import console
 import json
 
-
+app = Flask(__name__)
 socketio = SocketIO(app)
+
+if __name__ == '__main__':
+    socketio.run(app, port=5000)
 
 @app.route('/')
 def index():
@@ -13,7 +15,6 @@ def index():
 
 @socketio.on('message')
 def receive(msg):
-
     msg = json.loads(msg)["command"]
     response = console.handleMessage(msg)
 
@@ -25,5 +26,4 @@ def receive(msg):
 
     send('{"response":"console.end"}')
 
-if __name__ == '__main__':
-    socketio.run(app)
+

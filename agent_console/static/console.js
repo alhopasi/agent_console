@@ -15,7 +15,7 @@ term.prompt = () => {
 };
 
 socket.on('message', function (msg) {
-    response = JSON.parse(msg).response
+    response = JSON.parse(msg).response;
 
     if (response.match("console.clear")) { term.clear(); return; }
     if (response.match("console.end")) { term.write("\r\n$ "); return; }
