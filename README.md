@@ -7,12 +7,10 @@ If you are participating and found this by coincidence, please do not look furth
 
 ####
 Deployment:
-
-```flask --app agent_console/app run```
+```flask --app agent_console/app run -h 0.0.0.0```
 
 Next steps:
-- deploy to render
-- create user models
+- create user models / database
 - create login/logout system
 - continue developing the application with required features
 - create path system for users (post "path" info with request)

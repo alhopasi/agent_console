@@ -7,7 +7,7 @@ app = Flask(__name__)
 socketio = SocketIO(app)
 
 if __name__ == '__main__':
-    socketio.run(app, port=5000)
+    socketio.run(app, host='0.0.0.0')
 
 @app.route('/')
 def index():
@@ -22,7 +22,7 @@ def receive(msg):
 
     for line in lines:
         response = '{"response":"'+ line + '"}'
-        send(response, broadcast=True)
+        send(response)
 
     send('{"response":"console.end"}')
 
