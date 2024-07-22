@@ -1,9 +1,10 @@
-from flask import Flask, render_template
+from flask import render_template
 from flask_socketio import SocketIO, send
-import console
+from . import app
 import json
 
-app = Flask(__name__)
+from agent_console import console
+
 socketio = SocketIO(app)
 
 if __name__ == '__main__':
@@ -15,8 +16,10 @@ def index():
 
 @socketio.on('message')
 def receive(msg):
-    msg = json.loads(msg)["command"]
-    response = console.handleMessage(msg)
+    print(json.loads(msg))
+    command = json.loads(msg)["command"]
+    path = json.loads(msg)["path"]
+    response = console.handleMessage(command, path)
 
     lines = response.splitlines()
 
