@@ -1,7 +1,8 @@
 from sqlalchemy import event
+from flask_login import UserMixin
 from agent_console import db
 
-class User(db.Model):
+class User(db.Model, UserMixin):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True) # primary keys are required by SQLAlchemy
     user = db.Column(db.String(256), nullable=False) #pelaajan nimi

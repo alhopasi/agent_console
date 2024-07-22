@@ -1,3 +1,4 @@
+from flask_login import login_user, logout_user, current_user, login_required
 import re
 from agent_console.models import User
 
@@ -9,41 +10,54 @@ def buildTitle():
     return title
 
 def buildUserInfo():
-    userInfo = ""
+    userInfo = "nation: " + current_user.nation + \
+        "\n" + "currency: " + current_user.currency + \
+        "\n" + "alliance: " + current_user.alliance
     return userInfo
 
-def buildCommands():
-    commands = "[c] - clears console"
-    commands = "[b] - back to main screen"
+def buildCommands(path):
+    commands = "[?] - help" + \
+        "\n" + "[c] - clear"
+    if current_user.is_authenticated:
+        if current_user.role == "user": commands += "\n" + "[u] - user info"
+        if path == "/" and current_user.role == "user":
+            commands += "\n" + "[m] - messages"
+        if path == "/" and current_user.role == "admin":
+            commands += "\n" + "[a] - admin commands"
+        if path != "/":
+            commands += "\n" + "[b] - back"
+        commands += "\n" + "[l] - logout"
     return commands
-
-def buildResponse(msg):
-    response = msg
-    return response
 
 
 def tryLogin(msg):
     user = User.query.filter_by(password=msg).first()
-    if user: print(user.user); return True
+    if user: login_user(user); return True
     else: return False
 
 def handleMessage(command, path):
     response = ""
-    if command == "": response = "[?] - help"
-    if command == "c": response = "console.clear" + "\r\n" + buildTitle()
-    if command == "?": response = "console.clear" + "\r\n" + buildTitle() + "\r\n" + buildUserInfo() + "\r\n" + buildCommands()
-    if (command == "m" and path == "/"): response = "console.changePath messages"
-    if (command == "m" and path == "/"): response = "console.changePath admin" #check if user is logged in and admin role
-    if command == "b": response = "console.changePath /"
-
     if not parseMessage(command): response = "No cheating!"
+
+    if command == "": response = "[?] - help"
+    if command == "c": response = "console.clear" + "\n" + buildTitle()
+    if command == "?": response = buildCommands(path)
+    if current_user.is_authenticated:
+        if current_user.role == "user" and command == "u": response = buildUserInfo()
+        if path == "/" and current_user.role == "user" and command == "m": response = "console.changePath messages"
+        if path == "/" and current_user.role == "admin" and command == "a": response = "console.changePath admin"
+        if path != "/" and command == "b": response = "console.changePath /"
+        if command == "l": response = "console.changePath /" + "\n" + "console.clear" + "\n" + "console.changeUser " + "\n" + buildTitle(); logout_user()
 
     if response: return response
 
-    logged_in = False
-    if not logged_in:
+    if not current_user.is_authenticated:
         if not tryLogin(command): return "Login failed"
-        return "Login ok!"
+        if current_user.role == "user":
+            return "Login ok! - welcome " + current_user.nation + \
+            "\n" + "console.changeUser " + current_user.nation
+        else: return "Login ok! - welcome " + current_user.user + \
+            "\n" + "console.changeUser " + current_user.user +"@"
 
-    return buildResponse(command)
+    return command
     
