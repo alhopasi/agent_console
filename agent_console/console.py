@@ -1,11 +1,12 @@
-from flask_login import login_user, logout_user, current_user, login_required
+from flask_login import login_user, logout_user, current_user
 import re
 from agent_console.models import User
+from agent_console.models import Alliance
 
 def parseMessage(msg):
     return re.match("^[a-zA-Z0-9äÄöÖåÅ\?,. ]*$", msg)
 
-def buildTitle():
+def printTitle():
     title = '## AGENT CONSOLE ##'
     return title
 
@@ -15,18 +16,29 @@ def buildUserInfo():
         "\n" + "alliance: " + current_user.alliance
     return userInfo
 
-def buildCommands(path):
+def printCommands(path):
     commands = "[?] - help" + \
         "\n" + "[c] - clear"
     if current_user.is_authenticated:
         if current_user.role == "user": commands += "\n" + "[u] - user info"
         if path == "/" and current_user.role == "user":
             commands += "\n" + "[m] - messages"
-        if path == "/" and current_user.role == "admin":
-            commands += "\n" + "[a] - admin commands"
         if path != "/":
             commands += "\n" + "[b] - back"
         commands += "\n" + "[l] - logout"
+
+        if current_user.role == "admin":
+            commands += "\n\n" + "admin commands:"
+        if path == "/" and current_user.role == "admin":
+            commands += "\n" + "[a] - admin panel"
+        if path == "admin" and current_user.role == "admin":
+            commands += "\n" + "[la] - list alliances" + \
+                        "\n" + "[ca alliance_name] - new alliance" + \
+                        "\n" + "[da alliance_id] - delete alliance" + \
+                        "\n" + "[sai alliance_id new_alliance_id] - set alliance id" + \
+                        "\n" + "[san alliance_id new_alliance_name] - set alliance name"
+                        
+
     return commands
 
 
@@ -36,28 +48,46 @@ def tryLogin(msg):
     else: return False
 
 def handleMessage(command, path):
-    response = ""
-    if not parseMessage(command): response = "No cheating!"
 
-    if command == "": response = "[?] - help"
-    if command == "c": response = "console.clear" + "\n" + buildTitle()
-    if command == "?": response = buildCommands(path)
-    if current_user.is_authenticated:
-        if current_user.role == "user" and command == "u": response = buildUserInfo()
-        if path == "/" and current_user.role == "user" and command == "m": response = "console.changePath messages"
-        if path == "/" and current_user.role == "admin" and command == "a": response = "console.changePath admin"
-        if path != "/" and command == "b": response = "console.changePath /"
-        if command == "l": response = "console.changePath /" + "\n" + "console.clear" + "\n" + "console.changeUser " + "\n" + buildTitle(); logout_user()
+    try:
+        if not parseMessage(command): return "No cheating!"
 
-    if response: return response
+        if command == "": return "[?] - help"
+        if command == "c": return "console.clear" + "\n" + printTitle()
+        if command == "?": return printCommands(path)
+        if current_user.is_authenticated:
+            if current_user.role == "user" and command == "u": return buildUserInfo()
+            if path == "/" and current_user.role == "user" and command == "m": return "console.changePath messages"
 
-    if not current_user.is_authenticated:
-        if not tryLogin(command): return "Login failed"
-        if current_user.role == "user":
-            return "Login ok! - welcome " + current_user.nation + \
-            "\n" + "console.changeUser " + current_user.nation
-        else: return "Login ok! - welcome " + current_user.user + \
-            "\n" + "console.changeUser " + current_user.user +"@"
+            if path != "/" and command == "b": return"console.changePath /"
+            if command == "l": logout_user(); return "console.changePath /" + "\n" + "console.clear" + "\n" + "console.logout" + "\n" + printTitle()
 
-    return command
+            if path == "/" and current_user.role == "admin" and command == "a": return "console.changePath admin"
+            if path == "admin" and current_user.role == "admin" and command == "la": return Alliance.listAlliances()
+            if path == "admin" and current_user.role == "admin" and re.match("ca ", command): return Alliance.createAlliance(command.split(" ", 1)[1])
+            if path == "admin" and current_user.role == "admin" and re.match("da ", command): return Alliance.getAlliance(command.split(" ", 1)[1]).delete()
+            if path == "admin" and current_user.role == "admin" and re.match("sai ", command): return Alliance.getAlliance(command.split(" ", 2)[1]).setId(command.split(" ", 2)[2])
+            if path == "admin" and current_user.role == "admin" and re.match("san ", command): return Alliance.getAlliance(command.split(" ", 2)[1]).setName(command.split(" ", 2)[2])
+            # lu - list users
+            # cu user password nation alliance role - create new user - cu matti,elking,Example Elks,1
+            # du id - delete user
+            # sui id 
+            # suu id user - set user user
+            # sup id pw - set user password
+            # sun id nation - set user nation
+            # sua id id - set user alliance
+            # suc id currency - set user currency
+
+        if not current_user.is_authenticated:
+            if not tryLogin(command): return "Login failed"
+            if current_user.role == "user":
+                return "Login ok! - welcome " + current_user.nation + \
+                "\n" + "console.changeUser " + current_user.nation
+            else: return "Login ok! - welcome " + current_user.user + \
+                "\n" + "console.changeUser " + current_user.user +"@"
+
+        return "Unknown command - [?] for help"
+    except Exception as e:
+        print(e)
+        return "Unknown error happened"
     
