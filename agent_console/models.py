@@ -1,29 +1,30 @@
 from sqlalchemy import event
 from flask_login import UserMixin
 from agent_console import db
+from agent_console.utils import setEmptySpacesLeading
 
 class User(db.Model, UserMixin):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True) # primary keys are required by SQLAlchemy
-    user = db.Column(db.String(256), nullable=False, unique=True) #pelaajan nimi
+    name = db.Column(db.String(256), nullable=False, unique=True) #pelaajan nimi
     password = db.Column(db.String(256), nullable=False, unique=True) #salalause, jolla kirjaudutaan
     nation = db.Column(db.String(256), nullable=True) #valtio
     currency = db.Column(db.Integer, nullable=True) #rahat
     alliance = db.Column(db.Integer, db.ForeignKey("alliances.id"), nullable=True)
-    role = db.Column(db.String(256), nullable=False) #rooli - admin / user
+    role = db.Column(db.String(256), nullable=False) #rooli - admin / player
     messages = db.relationship("Message", backref = "user")
 
 
-    def __init__(self, user, password, nation="", alliance="", role="user"):
-        self.user = user.strip()
+    def __init__(self, name, password, nation="", alliance="", role="player"):
+        self.name = name.strip()
         self.password = password.strip()
         self.nation = nation.strip()
         self.currency = 5
         self.alliance = alliance
         self.role = role.strip()
     
-    def setUser(self, user):
-        self.user = user.strip()
+    def setName(self, name):
+        self.name = name.strip()
     
     def setNation(self, nation):
         self.nation = nation.strip()
@@ -47,11 +48,50 @@ class User(db.Model, UserMixin):
     
     @staticmethod
     def listUsers():
-        User.query.all()
+        users = User.query.all()
+        userColumnSizes = [0] * 3
+        userColumnSizes[2] = 6
+        for u in users:
+            if userColumnSizes[0] < len(u.name): userColumnSizes[0] = len(u.name)
+            if userColumnSizes[1] < len(u.password): userColumnSizes[1] = len(u.password)
+            if userColumnSizes[2] < len(u.nation): userColumnSizes[2] = len(u.nation)
+        response = "id" + \
+            " | " + setEmptySpacesLeading("name", userColumnSizes[0]) + \
+            " | " + setEmptySpacesLeading("password", userColumnSizes[1]) + \
+            " | " + setEmptySpacesLeading("nation", userColumnSizes[2]) + \
+            " | " + setEmptySpacesLeading("$", 2) + \
+            " | " + setEmptySpacesLeading("alliance", 8) + \
+            " | " + " role"
+        for u in users:
+            response += "\n" + setEmptySpacesLeading(str(u.id), 2) + \
+                        " | " + setEmptySpacesLeading(u.name, userColumnSizes[0]) + \
+                        " | " + setEmptySpacesLeading(u.password, userColumnSizes[1]) + \
+                        " | " + setEmptySpacesLeading(u.nation, userColumnSizes[2]) + \
+                        " | " + setEmptySpacesLeading(str(u.currency), 2) + \
+                        " | " + setEmptySpacesLeading(str(u.alliance), 8) + \
+                        " | " + setEmptySpacesLeading(u.role, 5)
+        return response
+    
+    @staticmethod
+    def createUser(name, password, nation, alliance):
+        if Alliance.query.filter_by(id=alliance).first() is not None:
+            db.session.add(User(name, password, nation, alliance))
+            db.session.commit()
+            return "User created: " + name + " | " + password + " | " + nation + " | " + alliance
+        return "Can not create user - no alliance found"
+    
+    def delete(self):
+        user = User.query.filter_by(id=self.id).first()
+        if user.role == "player":
+            User.query.filter_by(id=self.id).delete()
+            db.session.commit()
+            return "User deleted: " + str(self.id) + " | " + self.name + " | " + self.password + " | " + self.nation + " | " + str(self.currency) + " | " + str(self.alliance)
+        return "Can not delete admin user"
+        
 
 @event.listens_for(User.__table__, "after_create")
 def createAdminUser(*args, **kwargs):
-    db.session.add(User(user="admin", password="kissa123", role="admin"))
+    db.session.add(User(name="admin", password="kissa123", role="admin"))
     db.session.commit()
 
 
@@ -106,9 +146,8 @@ class Alliance(db.Model):
         response = "id | name"
         alliances = Alliance.query.all()
         for a in alliances:
-            response += "\n"
-            if a.id < 10: response += " "
-            response += str(a.id) + " | " + a.name
+            response += "\n" + setEmptySpacesLeading(str(a.id), 2) + \
+                        " | " + a.name
         return response
 
     @staticmethod
@@ -118,6 +157,8 @@ class Alliance(db.Model):
         return "Alliance created: " + name
     
     def delete(self):
+        if User.query.filter_by(alliance=self.id).first() is not None:
+            return "Can not delete alliance - Alliance is assigned to a player"
         Alliance.query.filter_by(id=self.id).delete()
         db.session.commit()
         return "Alliance deleted: " + str(self.id) + " | " + self.name

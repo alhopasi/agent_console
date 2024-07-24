@@ -33,10 +33,13 @@ def printCommands(path):
             commands += "\n" + "[a] - admin panel"
         if path == "admin" and current_user.role == "admin":
             commands += "\n" + "[la] - list alliances" + \
-                        "\n" + "[ca alliance_name] - new alliance" + \
+                        "\n" + "[ca alliance_name] - create new alliance" + \
                         "\n" + "[da alliance_id] - delete alliance" + \
-                        "\n" + "[sai alliance_id new_alliance_id] - set alliance id" + \
-                        "\n" + "[san alliance_id new_alliance_name] - set alliance name"
+                        "\n" + "[sai alliance_id,new_alliance_id] - set alliance id" + \
+                        "\n" + "[san alliance_id,new_alliance_name] - set alliance name" + \
+                        "\n" + "[lu] - list users" + \
+                        "\n" + "[cu user_name,password,nation,alliance] - create new user" + \
+                        "\n" + "[du id] - delete user"
                         
 
     return commands
@@ -49,7 +52,7 @@ def tryLogin(msg):
 
 def handleMessage(command, path):
 
-    try:
+    #try:
         if not parseMessage(command): return "No cheating!"
 
         if command == "": return "[?] - help"
@@ -66,8 +69,11 @@ def handleMessage(command, path):
             if path == "admin" and current_user.role == "admin" and command == "la": return Alliance.listAlliances()
             if path == "admin" and current_user.role == "admin" and re.match("ca ", command): return Alliance.createAlliance(command.split(" ", 1)[1])
             if path == "admin" and current_user.role == "admin" and re.match("da ", command): return Alliance.getAlliance(command.split(" ", 1)[1]).delete()
-            if path == "admin" and current_user.role == "admin" and re.match("sai ", command): return Alliance.getAlliance(command.split(" ", 2)[1]).setId(command.split(" ", 2)[2])
-            if path == "admin" and current_user.role == "admin" and re.match("san ", command): return Alliance.getAlliance(command.split(" ", 2)[1]).setName(command.split(" ", 2)[2])
+            if path == "admin" and current_user.role == "admin" and re.match("sai ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setId(commands[1])
+            if path == "admin" and current_user.role == "admin" and re.match("san ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setName(commands[1])
+            if path == "admin" and current_user.role == "admin" and command == "lu": return User.listUsers()
+            if path == "admin" and current_user.role == "admin" and re.match("cu ", command): commands = command.split(" ", 1)[1].split(","); return User.createUser(commands[0], commands[1], commands[2], commands[3])
+            if path == "admin" and current_user.role == "admin" and re.match("du ", command): return User.getUser(command.split(" ", 1)[1]).delete()
             # lu - list users
             # cu user password nation alliance role - create new user - cu matti,elking,Example Elks,1
             # du id - delete user
@@ -83,11 +89,11 @@ def handleMessage(command, path):
             if current_user.role == "user":
                 return "Login ok! - welcome " + current_user.nation + \
                 "\n" + "console.changeUser " + current_user.nation
-            else: return "Login ok! - welcome " + current_user.user + \
-                "\n" + "console.changeUser " + current_user.user +"@"
+            else: return "Login ok! - welcome " + current_user.name + \
+                "\n" + "console.changeUser " + current_user.name +"@"
 
         return "Unknown command - [?] for help"
-    except Exception as e:
-        print(e)
-        return "Unknown error happened"
+    #except Exception as e:
+    #    print(e)
+    #    return "Unknown error happened"
     

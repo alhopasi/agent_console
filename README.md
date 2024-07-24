@@ -10,8 +10,9 @@ Deployment:
 ```flask --app agent_console run -h 0.0.0.0```
 
 Next steps:
+- change output / command language to finnish
 - import admin command to change password
-- import admin commands to manage database / users
+- import admin commands to manage database / users  (halfway done)
 - import message system and commands
 - import task board and way to solve tasks
 - import admin commands to manage task board
