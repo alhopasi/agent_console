@@ -39,10 +39,10 @@ term.onKey(function (data) {
             curr_line = curr_line.slice(0, curr_line.length - 1);
             term.write("\b \b");
         }
-    } else if (kc.match("^[a-zA-Z0-9äÄöÖåÅ\?,. ]$")) {
+    } else if (kc.match("^[a-zA-Z0-9äÄöÖåÅ\?\!,. ]$")) {
         curr_line += data.key;
         term.write(data.key);
     }
 });
 
-curr_line = "c"; term.prompt(); curr_line = "";
+curr_line = ","; term.prompt(); curr_line = "";
