@@ -1,9 +1,17 @@
 
 var term = new Terminal({
     cursorBlink: "block",
-    rows: 40,
-    cols: 100
+    fontSize: "15",
+    cols: Math.floor(window.innerWidth / 10),
+    rows: Math.floor(window.innerHeight / 20)
 });
+
+addEventListener("resize", (event) => {});
+onresize = (event) => {
+    cols = Math.floor(window.innerWidth / 10);
+    rows = Math.floor(window.innerHeight / 20);
+    term.resize(cols, rows)
+};
 
 var curr_line = "";
 var user = "";
@@ -51,4 +59,19 @@ term.onData(function (data) {
     }
 });
 
-curr_line = ","; term.prompt(); curr_line = "";
+const RED = "\u001b[31m";
+const GREEN = "\u001b[32m";
+const YELLOW = "\u001b[33m";
+const BLUE = "\u001b[34m";
+const MAGENTA = "\u001b[35m";
+const CYAN = "\u001b[36m";
+const WHITE = "\u001b[37m";
+const PINK = "\u001b[38;5;201m";
+const LAVENDER = "\u001b[38;5;147m";
+const AQUA = "\u001b[38;2;145;231;255m";
+const PENCIL = "\u001b[38;2;253;182;0m";
+
+colors = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, PINK, LAVENDER, AQUA, PENCIL]
+colorcode = Math.floor(Math.random() * 11)
+
+curr_line = ","; term.prompt(); curr_line = ""; term.write(colors[colorcode])
