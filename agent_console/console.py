@@ -2,9 +2,10 @@ from flask_login import login_user, logout_user, current_user
 import re
 from agent_console.models import User
 from agent_console.models import Alliance
+from agent_console.models import Message
 
 def parseMessage(msg):
-    return re.match("^[a-zA-Z0-9äÄöÖåÅ\?\!,. ]*$", msg)
+    return re.match("^[a-zA-Z0-9äÄöÖåÅ\?\!,. :\-]*$", msg)
 
 def printTitle():
     title = '## ERITTÄIN SALAINEN OHJELMA ##'
@@ -17,21 +18,29 @@ def printCommands(path):
         commands += "\n" + "[salasana] - kirjaudu salasanalla"
     if current_user.is_authenticated:
         commands += "\n" + "[.] - päävalikkoon"
-        if current_user.role == "player": commands += "\n" + "[i] - pelaajan info"
+        if current_user.role == "player":
+            commands += "\n" + "[i] - pelaajan info" + \
+                        "\n" + "[p] - pelaajat"
         commands += "\n" + "[!] - kirjaudu ulos"
 
-        if path == "/" and current_user.role == "player":
-            commands += "\n" + \
-                        "\n" + "[v] - viestit" + \
-                        "\n" + "[t] - tehtävät"
+        if current_user.role == "player":
+            commands += "\n"
+            if path == "/":
+                commands += "\n" + "[v] - viestit" + \
+                            "\n" + "[t] - tehtävät" + \
+                            "\n" + "[a] - agenttitoiminnot"
+            if path == "viestit":
+                commands += "\n" + "[v] - listaa viestit" + \
+                            "\n" + "[l #] - lue viesti #"
 
         if current_user.role == "admin":
             commands += "\n"
-        if path == "/" and current_user.role == "admin":
-            commands += "\n" + "[a] - admin-komennot"
-        if path == "admin" and current_user.role == "admin":
-            commands += "\n" + "[l] - hallitse liittoja" + \
-                        "\n" + "[p] - hallitse pelaajia"
+            if path == "/":
+                commands += "\n" + "[a] - admin-komennot"
+            if path == "admin":
+                commands += "\n" + "[l] - hallitse liittoja" + \
+                            "\n" + "[p] - hallitse pelaajia" + \
+                            "\n" + "[v] - hallitse viestejä"
     return commands
 
 def printAdminAllianceCommands():
@@ -54,11 +63,35 @@ def printAdminUserCommands():
         "\n" + "[par pelaajan_id,uudet_rahat] - pelaajat aseta rahat"
     return commands
 
+def printAdminMessageCommands():
+    commands = "[vl] - viestit listaa" + \
+        "\n" + "[vu pelaajan_id,viesti] - viestit uusi" + \
+        "\n" + "[vp viestin_id] - viestit poista" + \
+        "\n" + "[vai viestin_id,uusi_id] - viestit aseta id" + \
+        "\n" + "[vap viestin_id,uusi_pelaajan_id] - viestit aseta pelaaja" + \
+        "\n" + "[vav viestin_id,uusi_viesti] - viestit aseta viesti" + \
+        "\n" + "[vaa viestin_id,uusi_aikaleima] - viestit aseta aikaleima" + \
+        "\n" + "[val viestin_id] - viestit aseta luetuksi/ei-luetuksi"
+    return commands
+
 
 def tryLogin(msg):
     user = User.query.filter_by(password=msg).first()
-    if user: login_user(user); return True
-    else: return False
+    if user:
+        login_user(user)
+        if current_user.role == "player":
+            unreadMessageAmount = current_user.getUnreadMessagesAmount()
+            if unreadMessageAmount == 1:
+                unreadMessageAmount = "\n" + "Sinulla on 1 lukematon viesti"
+            elif unreadMessageAmount > 1:
+                unreadMessageAmount = "\n" + "Sinulla on " + str(unreadMessageAmount) + " lukematonta viestiä"
+            else: unreadMessageAmount = ""
+            return "Kirjautuminen onnistui. Tervetuloa " + current_user.nation + unreadMessageAmount + \
+                "\n" + "console.changeUser " + current_user.nation + "@"
+        else: return "Kirjautuminen onnistui. Tervetuloa " + current_user.name + \
+                "\n" + "console.changeUser " + current_user.name +"@"
+    else: return "Kirjautuminen epäonnistui"
+
 
 def handleMessage(command, path):
 
@@ -73,10 +106,15 @@ def handleMessage(command, path):
             if command == "!": logout_user(); return "console.changePath /" + "\n" + "console.clear" + "\n" + "console.logout" + "\n" + printTitle()
 
             if current_user.role == "player":
+                if command == "p": return User.listPlayers()
                 if command == "i": return current_user.getInfo()  # vai näytetäänkö komentorivillä?
                 if path == "/" and command == "v": return "console.changePath viestit"
                 if path == "/" and command == "t": return "console.changePath tehtävät"
-            
+                if path == "/" and command == "a": return "console.changePath agenttitoiminnot"
+                if path == "viestit":
+                    if command == "v": return current_user.messagesList()
+                    if re.match("l ", command): return current_user.messagesRead(command.split(" ", 1)[1])
+
             if current_user.role == "admin":
                 if path == "/" and command == "a": return "console.changePath admin"
                 if path == "admin":
@@ -96,15 +134,15 @@ def handleMessage(command, path):
                     if re.match("pav ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setNation(commands[1])
                     if re.match("pal ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setAlliance(commands[1])
                     if re.match("par ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setCurrency(commands[1])
-
-            # path admin : command v - hallitse viestejä
-            # listaa
-            # luo
-            # poista
-            # aseta id
-            # aseta viesti
-            # aseta aikaleima
-            # aseta luetuksi/pois (True/False)
+                    if command == "v": return printAdminMessageCommands()
+                    if command == "vl": return Message.listMessages()
+                    if re.match("vu ", command): commands = command.split(" ", 1)[1].split(",", 1); return Message.createMessage(commands[0], commands[1])
+                    if re.match("vp ", command): return Message.getMessage(command.split(" ", 1)[1]).delete()
+                    if re.match("vai ", command): commands = command.split(" ", 1)[1].split(","); return Message.getMessage(commands[0]).setId(commands[1])
+                    if re.match("vap ", command): commands = command.split(" ", 1)[1].split(","); return Message.getMessage(commands[0]).setPlayer(commands[1])
+                    if re.match("vav ", command): commands = command.split(" ", 1)[1].split(","); return Message.getMessage(commands[0]).setMessage(commands[1])
+                    if re.match("vaa ", command): commands = command.split(" ", 1)[1].split(","); return Message.getMessage(commands[0]).setTimestamp(commands[1])
+                    if re.match("val ", command): commands = command.split(" ", 1)[1].split(","); return Message.getMessage(commands[0]).setRead()
 
             # path admin : command t - hallitse tehtäviä
             # listaa
@@ -124,7 +162,6 @@ def handleMessage(command, path):
             # aseta id
             # aseta kuvaus
 
-            # "player" : command: [valtiot] - listaa valtiot (järj.numero + aakkosjärjestys)
 
             # path = "viestit" : command: [v] - listaa viestit (järjestysnumero + saapumisaika)
             # path = "viestit" : command: [l viestin_numero] - lue (järjestysnumero + saapumisaika + kuvaus)
@@ -132,7 +169,7 @@ def handleMessage(command, path):
             # path = "tehtävä" : command: [salasana] - yrittää suorittaa tehtävän
             # path = "tehtävä" : command: [t] - listaa tehtävät
 
-            # path = "toiminnot":
+            # path = "agenttitoiminnot":
             # varoitus, kun siirtyy tänne, että toiminnot maksavat rahaa!
             # siirrä rahaa toiselle valtiolle (s id määrä) | hinta 0
             # kirjoita viesti (k id viesti) | hinta 1
@@ -142,13 +179,7 @@ def handleMessage(command, path):
 
 
         if not current_user.is_authenticated:
-            if not tryLogin(command): return "Kirjautuminen epäonnistui"
-            print(current_user.role)
-            if current_user.role == "player":
-                return "Kirjautuminen onnistui. Tervetuloa " + current_user.nation + \
-                "\n" + "console.changeUser " + current_user.nation + "@"
-            else: return "Kirjautuminen onnistui. Tervetuloa " + current_user.name + \
-                "\n" + "console.changeUser " + current_user.name +"@"
+            return tryLogin(command)
 
         return "Tuntematon komento - [?] näyttää komennot"
     #except Exception as e:

@@ -1,6 +1,8 @@
 
 var term = new Terminal({
-    cursorBlink: "block"
+    cursorBlink: "block",
+    rows: 40,
+    cols: 100
 });
 
 var curr_line = "";
@@ -29,7 +31,7 @@ socket.on('message', function (msg) {
 });
 
 term.onKey(function (data) {
-    kc = data.domEvent.key
+    kc = data.domEvent.key;
     if (kc == "Enter") {
         term.prompt();
         term.write("\r\n");
@@ -39,9 +41,13 @@ term.onKey(function (data) {
             curr_line = curr_line.slice(0, curr_line.length - 1);
             term.write("\b \b");
         }
-    } else if (kc.match("^[a-zA-Z0-9äÄöÖåÅ\?\!,. ]$")) {
-        curr_line += data.key;
-        term.write(data.key);
+    }
+});
+
+term.onData(function (data) {
+    if (data.match("^[a-zA-Z0-9äÄöÖåÅ\?\!,. :\-]$")) {
+        curr_line += data;
+        term.write(data);
     }
 });
 

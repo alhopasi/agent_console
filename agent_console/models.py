@@ -1,7 +1,8 @@
 from sqlalchemy import event
 from flask_login import UserMixin
+from datetime import datetime
 from agent_console import db
-from agent_console.utils import setEmptySpacesLeading
+from agent_console.utils import setEmptySpacesLeading, setEmptySpacesTrailing
 
 class User(db.Model, UserMixin):
     __tablename__ = "users"
@@ -65,18 +66,73 @@ class User(db.Model, UserMixin):
         self.role = role.strip()
 
     def getInfo(self):
-        playerInfo = "pelaaja: " + self.name + \
-              "\n" + "valtio:  " + self.nation + \
-              "\n" + "rahat:   " + str(self.currency) + \
-              "\n" + "liitto:  " + Alliance.getAlliance(self.alliance).name
-        # viestien määrä
-        # lukemattomien viestien määrä
+        playerInfo = "pelaaja:   " + self.name + \
+              "\n" + "valtio:    " + self.nation + \
+              "\n" + "rahat:     " + str(self.currency) + \
+              "\n" + "liitto:    " + Alliance.getAlliance(self.alliance).name + \
+              "\n" + "viestejä:  " + str(len(self.getMessages())) + \
+              "\n" + "lukematta: " + str(self.getUnreadMessagesAmount())
         return playerInfo
+    
+    def getUnreadMessagesAmount(self):
+        messages = Message.query.filter_by(user_id=self.id, read=False).all()
+        return len(messages)
+    
+    def getMessages(self):
+        messages = Message.query.filter_by(user_id=self.id).all()
+        messages.sort(key=lambda x: x.date_created)
+        return messages
+    
+    def messagesList(self):
+        messages = self.getMessages()
+        response = setEmptySpacesLeading("#", 4) + " | lukematta | saapunut"
+        for i, m in enumerate(messages):
+            response += "\n" + setEmptySpacesLeading("[" + str(i) + "]", 4)
+            if m.read == False: response += " | lukematta"
+            else: response += " |          "
+            response += " | " + str(m.date_created)
+        return response
+    
+    def messagesRead(self, messageNumber):
+        messages = self.getMessages()
+        if messages[int(messageNumber)].read == False:
+            messages[int(messageNumber)].read = True
+            db.session.commit()
+        return messages[int(messageNumber)].message
 
     @staticmethod
     def getUser(user_id):
         user = User.query.filter_by(id=user_id).first()
         return user
+    
+    @staticmethod
+    def getPlayersSortedByNation():
+        def sortByNation(u):
+            return u.nation
+        
+        users = User.query.filter_by(role="player").all()
+        users.sort(key=sortByNation)
+        return users
+    
+    @staticmethod
+    def listPlayers():
+        users = User.getPlayersSortedByNation()
+        rows = 10
+        if len(users) < rows:
+            rows = len(users)
+
+        nations = [""] * rows
+        for i, u in enumerate(users):
+            if i >= rows:
+                nations[i % rows] += " | "
+            nations[i % rows] += "[" + str(i) + "] " + setEmptySpacesTrailing(u.nation, 25)
+        
+        response = ""
+        for row in nations:
+            response += row + "\n"
+
+        return response
+
     
     @staticmethod
     def listUsers():
@@ -119,11 +175,14 @@ class User(db.Model, UserMixin):
         if user.role == "admin":
             return "Admin käyttäjää ei voida poistaa"
         
-        # poista saapuneet viestit
+        response = ""
+        messages = Message.query.filter_by(user_id=self.id)
+        for m in messages:
+            response += m.delete() + "\n"
         # poista "done" tehdyistä tehtävistä
         User.query.filter_by(id=self.id).delete()
         db.session.commit()
-        return "Käyttäjä poistettu: " + str(self.id) + " | " + self.name + " | " + self.password + " | " + self.nation + " | " + str(self.currency) + " | " + str(self.alliance)
+        return response + "Käyttäjä poistettu: " + str(self.id) + " | " + self.name + " | " + self.password + " | " + self.nation + " | " + str(self.currency) + " | " + str(self.alliance)
         
 
 @event.listens_for(User.__table__, "after_create")
@@ -135,23 +194,97 @@ def createAdminUser(*args, **kwargs):
 class Message(db.Model):
     __tablename__ = "messages"
     id = db.Column(db.Integer, primary_key=True) # primary keys are required by SQLAlchemy
-    date_created = db.Column(db.DateTime, default=db.func.current_timestamp())
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False) #viestin vastaanottajan numero
     message = db.Column(db.String(256), nullable=False) #viesti
     read = db.Column(db.Boolean, default=False) # kun luettu, set True
+    date_created = db.Column(db.DateTime, default=db.func.current_timestamp())
 
     def __init__(self, user_id, message):
-        self.user_id = user_id
+        self.user_id = user_id.strip()
+        self.message = message.strip()
+
+    def setId(self, id):
+        response = "Viestin vanha id: " + str(self.id)
+        self.id = int(id.strip())
+        db.session.commit()
+        response += ", uusi id: " + str(self.id)
+        return response
+    
+    def setPlayer(self, player_id):
+        user = User.query.filter_by(id=player_id).first()
+        if user is not None:
+            if user.role != "player":
+                return "Ei voida asettaa pelaajan id:tä, pelaajaa ei ole"
+            response = "Viestin vanha pelaaja id: " + str(self.user_id)
+            self.user_id=player_id.strip()
+            db.session.commit()
+            response += ", uusi pelaajan id: " + str(self.user_id)
+            return response
+        return "Ei voida asettaa pelaajan id:tä - pelaajaa ei ole"
+    
+    def setMessage(self, message):
+        response = "Viestin vanha viesti: " + self.message
         self.message = message
+        response += ", uusi viesti: " + self.message
+        return response
+    
+    def setTimestamp(self, timestamp):
+        format = "%Y-%m-%d %H:%M:%S"
+        if datetime.strptime(timestamp, format):
+            response = "Viestin vanha aikaleima: " + str(self.date_created)
+            self.date_created = datetime.strptime(timestamp, format)
+            db.session.commit()
+            response += ", uusi aikaleima: " + str(self.date_created)
+            return response
+        return "Ei voida asettaa aikaleimaa - aikaleima on virheellinen"
+    
+    
+    def setRead(self):
+        response = "Viestin vanha luettu: " + str(self.read)
+        if self.read == False: self.read = True
+        else: self.read = False
+        db.session.commit()
+        response += ", uusi tila: " + str(self.read)
+        return response
     
     @staticmethod
     def getMessage(messageId):
         message = Message.query.filter_by(id=messageId).first()
         return message
     
+    @staticmethod
+    def createMessage(playerId, message):
+        if User.query.filter_by(id=playerId).first() is not None:
+            db.session.add(Message(playerId, message))
+            db.session.commit()
+            return "Viesti luotu: " + playerId + " | " + message
+        return "Ei voida luoda viestiä - pelaajaa ei löydy"
+    
     def delete(self):
         Message.query.filter_by(id=self.id).delete()
         db.session().commit()
+        return "Viesti poistettu: " + str(self.id) + " | " + str(self.user_id) + " | " + self.message + " | " + str(self.read) + " | " + str(self.date_created)
+
+    
+    @staticmethod
+    def listMessages():
+        messages = Message.query.all()
+        messageLength = 6
+        for m in messages:
+            if len(m.message) > messageLength: messageLength = len(m.message)
+        response = "id" + \
+            " | " + "pelaajan id" + \
+            " | " + setEmptySpacesLeading("viesti", messageLength) + \
+            " | " + "luettu" + \
+            " | " + "aikaleima"
+        
+        for m in messages:
+            response += "\n" + setEmptySpacesLeading(str(m.id), 2) + \
+                        " | " + setEmptySpacesLeading(str(m.user_id), 11) + \
+                        " | " + setEmptySpacesLeading(m.message, messageLength) + \
+                        " | " + setEmptySpacesLeading(str(m.read), 6) + \
+                        " | " + str(m.date_created)
+        return response
 
 class Alliance(db.Model):
     __tablename__ = "alliances"
@@ -211,10 +344,10 @@ class Task(db.Model):
     done = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True) # kun pelaaja tehnyt, pelaajan id tähän
 
     def __init__(self, name, description, secret, reward=5):
-        self.name = name
-        self.description = description
-        self.reward = reward
-        self.secret = secret
+        self.name = name.strip()
+        self.description = description.strip()
+        self.reward = reward.strip()
+        self.secret = secret.strip()
 
     def claim(self, userId):
         self.claimed = userId
