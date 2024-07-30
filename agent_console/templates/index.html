@@ -6,10 +6,10 @@
     <title>Agent Console</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
     <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='console.css') }}">
-
 </head>
 
 <body>
+    <div id="infoTerminal"></div>
     <div id="terminal"></div>
     <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/socket.io-client/dist/socket.io.js"></script>

@@ -1,4 +1,14 @@
 
+var infoTerm = new Terminal({
+    fontSize: "15",
+    cols: Math.floor(window.innerWidth / 10),
+    rows: 2,
+    cursorInactiveStyle: "none",
+    scrollback: 0
+});
+
+infoTerm.open(document.getElementById('infoTerminal'));
+
 var term = new Terminal({
     cursorBlink: "block",
     fontSize: "15",
@@ -22,20 +32,19 @@ term.open(document.getElementById('terminal'));
 var socket = io();
 
 term.prompt = () => {
-    let data = { command: curr_line, path: path };
+    let data = { term: "agent", command: curr_line, path: path };
     socket.send(JSON.stringify(data));
 };
 
 socket.on('message', function (msg) {
     response = JSON.parse(msg).response;
-
+    if (response.match("console.time ")) { infoTerm.write("  -- " + response.split("console.time ")[1] + " --" + "\r\n"); return; }
     if (response.match("console.clear")) { term.clear(); return; }
     if (response.match("console.changePath")) { path = response.split(" ")[1]; return; }
     if (response.match("console.changeUser")) { user = response.split("changeUser ")[1]; return; }
     if (response.match("console.logout")) { user = ""; return; }
     if (response.match("console.end")) { term.write("\r\n" + user + path + "$ "); return; }
     term.write(response + "\r\n");
-    
 });
 
 term.onKey(function (data) {
@@ -74,4 +83,17 @@ const PENCIL = "\u001b[38;2;253;182;0m";
 colors = [RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, PINK, LAVENDER, AQUA, PENCIL]
 colorcode = Math.floor(Math.random() * 11)
 
-curr_line = ","; term.prompt(); curr_line = ""; term.write(colors[colorcode])
+curr_line = ","; term.prompt(); curr_line = "";
+term.write(colors[colorcode]);
+infoTerm.write(colors[colorcode]);
+
+
+function getTime() {
+    if (user != "") {
+        let data = { term: "info", command: "get_time" };
+        socket.send(JSON.stringify(data));
+    }
+    else { infoTerm.clear()}
+}
+
+setInterval(getTime, 1000)

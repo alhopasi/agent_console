@@ -2,6 +2,7 @@ from flask import render_template
 from flask_socketio import SocketIO, send
 from . import app
 import json
+from datetime import datetime, timezone, timedelta
 
 from agent_console import console
 
@@ -14,19 +15,29 @@ if __name__ == '__main__':
 def index():
     return render_template('index.html')
 
+
 @socketio.on('message')
 def receive(msg):
-    print(json.loads(msg))
+    term = json.loads(msg)["term"]
     command = json.loads(msg)["command"]
-    path = json.loads(msg)["path"]
-    response = console.handleMessage(command, path)
 
-    lines = response.splitlines()
+    if term == "info":
+        if command == "get_time":
+            send('{"response": "console.time ' + getCurrentTime() + '"}')
+        return
+    
+    if term == "agent":
+        path = json.loads(msg)["path"]
 
-    for line in lines:
-        response = '{"response":"'+ line + '"}'
-        send(response)
+        response = console.handleMessage(command, path)
 
-    send('{"response":"console.end"}')
+        lines = response.splitlines()
 
+        for line in lines:
+            response = '{"response":"'+ line + '"}'
+            send(response)
 
+        send('{"response":"console.end"}')
+
+def getCurrentTime():
+    return datetime.now(tz=timezone(timedelta(seconds=10800), 'EEST')).strftime("%Y-%m-%d %H:%M:%S")
