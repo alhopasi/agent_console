@@ -1,6 +1,6 @@
 from sqlalchemy import event
 from flask_login import UserMixin
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from agent_console import db
 from agent_console.utils import setEmptySpacesLeading, setEmptySpacesTrailing
 
@@ -101,7 +101,7 @@ class User(db.Model, UserMixin):
             response += "\n" + setEmptySpacesLeading("[" + str(i) + "]", 4)
             if m.read == False: response += " | lukematta"
             else: response += " |          "
-            response += " | " + str(m.date_created)
+            response += " | " + m.date_created.strftime("%Y-%m-%d %H:%M:%S")
         return response
     
     def messagesRead(self, messageNumber):
@@ -212,7 +212,7 @@ class Message(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False) #viestin vastaanottajan numero
     message = db.Column(db.String(256), nullable=False) #viesti
     read = db.Column(db.Boolean, default=False) # kun luettu, set True
-    date_created = db.Column(db.DateTime, default=db.func.current_timestamp())
+    date_created = db.Column(db.DateTime, default=datetime.now(tz=timezone(timedelta(seconds=10800), 'EEST')))
 
     def __init__(self, user_id, message):
         self.user_id = user_id.strip()
@@ -246,10 +246,10 @@ class Message(db.Model):
     def setTimestamp(self, timestamp):
         format = "%Y-%m-%d %H:%M:%S"
         if datetime.strptime(timestamp, format):
-            response = "Viestin vanha aikaleima: " + str(self.date_created)
+            response = "Viestin vanha aikaleima: " + self.date_created.strftime("%Y-%m-%d %H:%M:%S")
             self.date_created = datetime.strptime(timestamp, format)
             db.session.commit()
-            response += ", uusi aikaleima: " + str(self.date_created)
+            response += ", uusi aikaleima: " + self.date_created.strftime("%Y-%m-%d %H:%M:%S")
             return response
         return "Ei voida asettaa aikaleimaa - aikaleima on virheellinen"
     
@@ -278,7 +278,7 @@ class Message(db.Model):
     def delete(self):
         Message.query.filter_by(id=self.id).delete()
         db.session().commit()
-        return "Viesti poistettu: " + str(self.id) + " | " + str(self.user_id) + " | " + self.message + " | " + str(self.read) + " | " + str(self.date_created)
+        return "Viesti poistettu: " + str(self.id) + " | " + str(self.user_id) + " | " + self.message + " | " + str(self.read) + " | " + self.date_created.strftime("%Y-%m-%d %H:%M:%S")
 
     
     @staticmethod
@@ -298,7 +298,7 @@ class Message(db.Model):
                         " | " + setEmptySpacesLeading(str(m.user_id), 11) + \
                         " | " + setEmptySpacesLeading(m.message, messageLength) + \
                         " | " + setEmptySpacesLeading(str(m.read), 6) + \
-                        " | " + str(m.date_created)
+                        " | " + m.date_created.strftime("%Y-%m-%d %H:%M:%S")
         return response
 
 class Alliance(db.Model):
