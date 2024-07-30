@@ -1,5 +1,9 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+import os, time
+
+os.environ['TZ'] = 'Europe/Helsinki'
+time.tzset()
 
 app = Flask(__name__)
 
