@@ -212,7 +212,7 @@ class Message(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False) #viestin vastaanottajan numero
     message = db.Column(db.String(256), nullable=False) #viesti
     read = db.Column(db.Boolean, default=False) # kun luettu, set True
-    date_created = db.Column(db.DateTime, default=datetime.now(tz=timezone(timedelta(seconds=10800), 'EEST')))
+    date_created = db.Column(db.DateTime, default=lambda: datetime.now(tz=timezone(timedelta(seconds=10800), 'EEST')))
 
     def __init__(self, user_id, message):
         self.user_id = user_id.strip()

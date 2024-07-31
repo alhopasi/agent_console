@@ -12,6 +12,8 @@ Deployment:
 Next steps:
 - import secrets and admin commands to manage them
 - import agent command path and commands
+- import check if the game has started (startime - time compare on backend)
+- import secret challenge
 - continue developing the application with required features
 
 note to self: gunicorn don't work with flask-socketio - look for alternates or stay with flask development server ?
