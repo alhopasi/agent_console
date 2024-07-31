@@ -1,9 +1,10 @@
 from flask_login import login_user, logout_user, current_user
 import re
-from agent_console.models import User
-from agent_console.models import Alliance
-from agent_console.models import Message
-from agent_console.models import Task
+from agent_console.models.user import User
+from agent_console.models.alliance import Alliance
+from agent_console.models.message import Message
+from agent_console.models.task import Task
+from agent_console.models.secrets import Secret
 
 def parseMessage(msg):
     return re.match("^[a-zA-Z0-9äÄöÖåÅ\?\!,. :\-]*$", msg)
@@ -32,7 +33,7 @@ def printCommands(path):
                             "\n" + "[a] - agenttitoiminnot"
             if path == "viestit":
                 commands += "\n" + "[v] - listaa viestit" + \
-                            "\n" + "[l #] - lue viesti #"
+                            "\n" + "[#] - lue viesti #"
             if path == "tehtävät":
                 commands += "\n" + "[t] - listaa tehtävät" + \
                             "\n" + "[salaisuus] - suorita tehtävä salaisuudella"
@@ -58,13 +59,14 @@ def printAdminAllianceCommands():
 
 def printAdminUserCommands():
     commands = "[pl] - pelaajat listaa" + \
-        "\n" + "[pu nimi,salasana,valtio,liitto] - pelaajat uusi" + \
+        "\n" + "[pu nimi,salasana,valtio,liitto,valeliitto] - pelaajat uusi" + \
         "\n" + "[pp pelaajan_id] - pelaajat poista" + \
         "\n" + "[pai pelaajan_id,uusi_id] - pelaajat aseta id" + \
         "\n" + "[pan pelaajan_id,uusi_nimi] - pelaajat aseta nimi" + \
         "\n" + "[pas pelaajan_id,uusi_salasana] - pelaajat aseta salasana" + \
         "\n" + "[pav pelaajan_id,uusi_valtio] - pelaajat aseta valtio" + \
         "\n" + "[pal pelaajan_id,uusi_liitto] - pelaajat aseta liitto" + \
+        "\n" + "[pavl pelaajan_id,uusi_liitto] - pelaajat aseta valeliitto" + \
         "\n" + "[par pelaajan_id,uudet_rahat] - pelaajat aseta rahat"
     return commands
 
@@ -131,10 +133,10 @@ def handleMessage(command, path):
                 if path == "/" and command == "a": return "console.changePath agenttitoiminnot"
                 if path == "viestit":
                     if command == "v": return current_user.messagesList()
-                    if re.match("l ", command): return current_user.messagesRead(command.split(" ", 1)[1])
+                    if re.match("\d+", command): return current_user.messagesRead(command)
                 if path == "tehtävät":
                     if command == "t": return Task.listTasks()
-                    if command: return Task.claim(command, current_user.id)
+                    if command: return current_user.tryClaimTask(command)
 
             if current_user.role == "admin":
                 if path == "/" and command == "a": return "console.changePath admin"
@@ -147,13 +149,14 @@ def handleMessage(command, path):
                     if re.match("lan ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setName(commands[1])
                     if command == "p": return printAdminUserCommands()
                     if command == "pl": return User.listUsersForAdmin()
-                    if re.match("pu ", command): commands = command.split(" ", 1)[1].split(","); return User.createUser(commands[0], commands[1], commands[2], commands[3])
+                    if re.match("pu ", command): commands = command.split(" ", 1)[1].split(","); return User.createUser(commands[0], commands[1], commands[2], commands[3], commands[4])
                     if re.match("pp ", command): return User.getUser(command.split(" ", 1)[1]).delete()
                     if re.match("pai ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setId(commands[1])
                     if re.match("pan ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setName(commands[1])
                     if re.match("pas ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setPassword(commands[1])
                     if re.match("pav ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setNation(commands[1])
                     if re.match("pal ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setAlliance(commands[1])
+                    if re.match("pavl ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setFakeAlliance(commands[1])
                     if re.match("par ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setCurrency(commands[1])
                     if command == "v": return printAdminMessageCommands()
                     if command == "vl": return Message.listMessagesForAdmin()
@@ -201,4 +204,3 @@ def handleMessage(command, path):
     #except Exception as e:
     #    print(e)
     #    return "Unknown error happened"
-    

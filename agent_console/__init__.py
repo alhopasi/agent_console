@@ -7,8 +7,8 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///agentconsole.db"
 
 db = SQLAlchemy(app)
 
-from agent_console import models
-from agent_console.models import User
+
+from agent_console.models.user import User
 from agent_console import main
 
 
