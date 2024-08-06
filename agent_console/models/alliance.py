@@ -1,16 +1,17 @@
 from agent_console import db
 from agent_console.utils import setEmptySpacesLeading
 
-#alliance_secret_association = db.Table("alliances_secrets",
-#    db.Column("alliance_id", db.Integer, db.ForeignKey("alliances.id"), primary_key=True),
-#    db.Column("secret_id", db.Integer, db.ForeignKey("secrets.id"), primary_key=True),
-#)
+alliance_secret_association = db.Table("alliances_secrets",
+    db.Column("alliance_id", db.Integer, db.ForeignKey("alliances.id")),
+    db.Column("secret_id", db.Integer, db.ForeignKey("secrets.id"))
+)
 
 class Alliance(db.Model):
     __tablename__ = "alliances"
     id = db.Column(db.Integer, primary_key=True) # primary keys are required by SQLAlchemy
     name = db.Column(db.String(256), nullable=False, unique=True)
-#    alliance_secret_association = db.relationship("Secret", secondary=alliance_secret_association, lazy="subquery", backref=db.backref("alliances", lazy=True), foreign_keys = "")
+    secrets = db.relationship("Secret", secondary=alliance_secret_association, back_populates="alliances")
+    #secrets = db.relationship("Secret", secondary=alliance_secret_association, lazy="subquery", backref=db.backref("alliances", lazy=True), foreign_keys = "")
 
     def __init__(self, name):
         self.name = name.strip()

@@ -23,9 +23,19 @@ login_manager.init_app(app)
 def load_user(user_id):
     return User.query.get(user_id)
 
-try:
+# Ensure FOREIGN KEY for sqlite3
+if 'sqlite' in app.config['SQLALCHEMY_DATABASE_URI']:
+    def _fk_pragma_on_connect(dbapi_con, con_record):  # noqa
+        dbapi_con.execute('pragma foreign_keys=ON')
+
     with app.app_context():
+        from sqlalchemy import event
+        event.listen(db.engine, 'connect', _fk_pragma_on_connect)
         db.create_all()
-except Exception as e:
-    print(e)
-    pass
+
+#try:
+#    with app.app_context():
+#        db.create_all()
+#except Exception as e:
+#    print(e)
+#    pass

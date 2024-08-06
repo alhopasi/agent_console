@@ -20,14 +20,14 @@ class User(db.Model, UserMixin):
     fakeAlliance = db.Column(db.Integer, db.ForeignKey("alliances.id"), nullable=True)
 
 
-    def __init__(self, name, password, nation="", alliance="", fakeAlliance="", role="player"):
+    def __init__(self, name, password, nation="", alliance=None, fakeAlliance=None, role="player"):
         self.name = name.strip()
         self.password = password.strip()
         self.nation = nation.strip()
         self.currency = 5
-        self.alliance = alliance.strip()
+        self.alliance = alliance
         self.role = role.strip()
-        self.fakeAlliance = fakeAlliance.strip()
+        self.fakeAlliance = fakeAlliance
 
     def setId(self, id):
         response = "Pelaajan vanha id: " + str(self.id)
@@ -153,32 +153,44 @@ class User(db.Model, UserMixin):
         return user
     
     @staticmethod
-    def getPlayersSortedByNation():
+    def getPlayersSortedForListing():
+        def sortByFakeAlliance(u):
+            return Alliance.getAlliance(u.fakeAlliance).name
+        
         def sortByNation(u):
             return u.nation
         
         users = User.query.filter_by(role="player").all()
         users.sort(key=sortByNation)
+        users.sort(key=sortByFakeAlliance)
         return users
     
     @staticmethod
     def listPlayers():
-        users = User.getPlayersSortedByNation()
-        rows = 10
+        alliances = Alliance.query.all()
+        allianceNameLength = 7
+        for a in alliances:
+            if len(a.name) > allianceNameLength: allianceNameLength = len(a.name)
+
+        users = User.getPlayersSortedForListing()
+        
+        rows = 5
         if len(users) < rows:
             rows = len(users)
 
+        header = ""
+
         nations = [""] * rows
         for i, u in enumerate(users):
-            if i >= rows:
-                nations[i % rows] += " | "
-            nations[i % rows] += "[" + str(i) + "] " + setEmptySpacesTrailing(u.nation, 25)
-        
+            if i % rows == 0:
+                header += " #   " + setEmptySpacesTrailing("Liitto",  allianceNameLength + 2) + setEmptySpacesTrailing("Valtio", 25)
+            nations[i % rows] += "[" + str(i) + "] [" + setEmptySpacesTrailing(Alliance.getAlliance(u.fakeAlliance).name + "]",  allianceNameLength + 2) + setEmptySpacesTrailing(u.nation, 25)
+
         response = ""
         for row in nations:
             response += row + "\n"
 
-        return response
+        return header + "\n" + response
 
     
     @staticmethod
@@ -213,8 +225,8 @@ class User(db.Model, UserMixin):
     
     @staticmethod
     def createUser(name, password, nation, alliance, fakeAlliance):
-        if Alliance.query.filter_by(id=alliance).first() is not None:
-            db.session.add(User(name, password, nation, alliance, fakeAlliance))
+        if Alliance.query.filter_by(id=alliance.strip()).first() is not None:
+            db.session.add(User(name, password, nation, alliance.strip(), fakeAlliance.strip()))
             db.session.commit()
             return "Käyttäjä luotu: " + name + " | " + password + " | " + nation + " | " + alliance + " | " + fakeAlliance
         return "Ei voida luoda käyttäjää - liittoa ei löydy"
