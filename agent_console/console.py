@@ -36,7 +36,7 @@ def printCommands(path):
                             "\n" + "[#] - lue viesti #"
             if path == "tehtävät":
                 commands += "\n" + "[t] - listaa tehtävät" + \
-                            "\n" + "[salaisuus] - suorita tehtävä salaisuudella"
+                            "\n" + "[koodi] - suorita tehtävä koodilla"
 
         if current_user.role == "admin":
             commands += "\n"
@@ -46,7 +46,8 @@ def printCommands(path):
                 commands += "\n" + "[l] - hallitse liittoja" + \
                             "\n" + "[p] - hallitse pelaajia" + \
                             "\n" + "[v] - hallitse viestejä" + \
-                            "\n" + "[t] - hallitse tehtäviä"
+                            "\n" + "[t] - hallitse tehtäviä" + \
+                            "\n" + "[s] - hallitse salaisuuksia"
     return commands
 
 def printAdminAllianceCommands():
@@ -54,7 +55,9 @@ def printAdminAllianceCommands():
         "\n" + "[lu liiton_nimi] - liitot uusi" + \
         "\n" + "[lp liiton_id] - liitot poista" + \
         "\n" + "[lai liiton_id,uusi_id] - liitot aseta id" + \
-        "\n" + "[lan liiton_id,uusi_nimi] - liitot aseta nimi"
+        "\n" + "[lan liiton_id,uusi_nimi] - liitot aseta nimi" + \
+        "\n" + "[las liiton_id,salaisuuden_id] - liitot aseta salaisuus" + \
+        "\n" + "[lps liiton_id,salaisuuden_id] - liitot poista salaisuus"
     return commands
 
 def printAdminUserCommands():
@@ -83,15 +86,24 @@ def printAdminMessageCommands():
 
 def printAdminTaskCommands():
     commands = "[tl] - tehtävät listaa" + \
-        "\n" + "[tu tehtävän_nimi,palkinto,salaisuus,kuvaus] - tehtävät uusi" + \
+        "\n" + "[tu tehtävän_nimi,palkinto,koodi,kuvaus] - tehtävät uusi" + \
         "\n" + "[tp tehtävän_id] - tehtävät poista" + \
         "\n" + "[tai tehtävän_id,uusi_id] - tehtävät aseta id" + \
         "\n" + "[tan tehtävän_id,uusi_nimi] - tehtävät aseta nimi" + \
         "\n" + "[tap tehtävän_id,uusi_palkinto] - tehtävät aseta palkinto" + \
-        "\n" + "[tas tehtävän_id,uusi_salaisuus] - tehtävät aseta salaisuus" + \
+        "\n" + "[tas tehtävän_id,uusi_koodi] - tehtävät aseta koodi" + \
         "\n" + "[tak tehtävän_id,uusi_kuvaus] - tehtävät aseta kuvaus" + \
         "\n" + "[tat tehtävän_id,tekijä] - tehtävät aseta tekijä" + \
         "\n" + "[tpt tehtävän_id] - tehtävät poista tekijä"
+    return commands
+
+def printAdminSecretCommands():
+    commands = "[sl] - salaisuudet listaa" + \
+        "\n" + "[su taso,salaisuus] - salaisuudet uusi" + \
+        "\n" + "[sp salaisuuden_id] - salaisuudet poista" + \
+        "\n" + "[sai salaisuuden_id,uusi_id] - salaisuudet aseta id" + \
+        "\n" + "[sat salaisuuden_id,taso] - salaisuudet aseta taso" + \
+        "\n" + "[sas salaisuuden_id,salaisuus] - salaisuudet aseta salaisuus"
     return commands
 
 
@@ -147,6 +159,8 @@ def handleMessage(command, path):
                     if re.match("lp ", command): return Alliance.getAlliance(command.split(" ", 1)[1]).delete()
                     if re.match("lai ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setId(commands[1])
                     if re.match("lan ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setName(commands[1])
+                    if re.match("las ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setSecret(Secret.getSecret(commands[1]))
+                    if re.match("lps ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).removeSecret(Secret.getSecret(commands[1]))
                     if command == "p": return printAdminUserCommands()
                     if command == "pl": return User.listUsersForAdmin()
                     if re.match("pu ", command): commands = command.split(" ", 1)[1].split(","); return User.createUser(commands[0], commands[1], commands[2], commands[3], commands[4])
@@ -178,21 +192,20 @@ def handleMessage(command, path):
                     if re.match("tak ", command): commands = command.split(" ", 1)[1].split(",", 1); return Task.getTask(commands[0]).setDescription(commands[1])
                     if re.match("tat ", command): commands = command.split(" ", 1)[1].split(","); return Task.getTask(commands[0]).setClaim(commands[1])
                     if re.match("tpt ", command): return Task.getTask(command.split(" ")[1]).unclaim()
-
-
-            # path admin : command s - hallitse salaisuuksia  
-            # listaa
-            # luo
-            # poista
-            # aseta id
-            # aseta kuvaus
-
+                    if command == "s": return printAdminSecretCommands()
+                    if command == "sl": return Secret.listSecretsForAdmin()
+                    if re.match("su ", command): commands = command.split(" ", 1)[1].split(","); return Secret.createSecret(commands[0], commands[1])
+                    if re.match("sp ", command): return Secret.getSecret(command.split(" ")[1]).delete()
+                    if re.match("sai ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setId(commands[1])
+                    if re.match("sat ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setTier(commands[1])
+                    if re.match("sas ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setSecret(commands[1])
+                    
 
             # path = "agenttitoiminnot":
             # varoitus, kun siirtyy tänne, että toiminnot maksavat rahaa!
             # siirrä rahaa toiselle valtiolle (s id määrä) | hinta 0
             # kirjoita viesti (k id viesti) | hinta 1
-            # salaisuus (salaisuus) | hinta 3
+            # salaisuus (salaisuus) | hinta 3 (random tier kerrallaan, kohti isoa)
             # paljasta kohteen todellinen liitto | hinta 5
             # yritä voittaa | hinta 5
 

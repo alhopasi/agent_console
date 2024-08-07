@@ -95,10 +95,15 @@ class User(db.Model, UserMixin):
             taskNameColumn = 4
             for t in tasks:
                 if taskNameColumn < len(t.name): taskNameColumn = len(t.name)
-            playerInfo += "\n" + \
-                "suoritetut tehtävät:"
+            playerInfo += "\n" + "suoritetut tehtävät:"
         for t in tasks:
             playerInfo += "\n  " + setEmptySpacesLeading(t.name, taskNameColumn) + " | " + str(t.reward) + " $"
+
+        secrets = Alliance.getAlliance(self.alliance).secrets
+        if len(secrets) > 0:
+            playerInfo += "\n" + "tiimin paljastetut salaisuudet:"
+            for s in secrets:
+                playerInfo += "\n  " + s.secret
 
         return playerInfo
     
@@ -128,14 +133,14 @@ class User(db.Model, UserMixin):
             db.session.commit()
         return messages[int(messageNumber)].message
     
-    def tryClaimTask(self, secret):
-        task = Task.query.filter_by(secret=secret, done="").first()
+    def tryClaimTask(self, code):
+        task = Task.query.filter_by(code=code, done=None).first()
         if task:
             task.done = self.id
             self.currency += task.reward
             db.session.commit()
             return "Tehtävä " + task.name + " suoritettu onnistuneesti! Ansaitsit " + str(task.reward) + " $"
-        return "Salaisuutta ei löydy"
+        return "Koodia ei löydy"
 
     def sendMessage(self, message):
         db.session.add(Message(self.id, message))

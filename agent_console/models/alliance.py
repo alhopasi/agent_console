@@ -11,7 +11,6 @@ class Alliance(db.Model):
     id = db.Column(db.Integer, primary_key=True) # primary keys are required by SQLAlchemy
     name = db.Column(db.String(256), nullable=False, unique=True)
     secrets = db.relationship("Secret", secondary=alliance_secret_association, back_populates="alliances")
-    #secrets = db.relationship("Secret", secondary=alliance_secret_association, lazy="subquery", backref=db.backref("alliances", lazy=True), foreign_keys = "")
 
     def __init__(self, name):
         self.name = name.strip()
@@ -30,17 +29,36 @@ class Alliance(db.Model):
         response += ", uusi nimi: " + self.name
         return response
     
+    def setSecret(self, secret):
+        self.secrets.append(secret)
+        secret.alliances.append(self)
+        db.session.commit()
+        return "Salaisuus " + str(secret.id) + " asetettu liitolle."
+    
+    def removeSecret(self, secret):
+        self.secrets.remove(secret)
+        db.session.commit()
+        return "Salaisuus " + str(secret.id) + " poistettu liitolta."
+    
     @staticmethod
     def getAlliance(allianceId):
         return Alliance.query.filter_by(id=allianceId).first()
     
     @staticmethod
     def listAlliancesForAdmin():
-        response = "id | nimi"
         alliances = Alliance.query.all()
+
+        allianceNamesWidth = 4
+        for a in alliances:
+            if len(a.name) > allianceNamesWidth: allianceNamesWidth = len(a.name)
+
+        response = "id | " + setEmptySpacesLeading("nimi", allianceNamesWidth) + " | salaisuudet"
         for a in alliances:
             response += "\n" + setEmptySpacesLeading(str(a.id), 2) + \
-                        " | " + a.name
+                        " | " + setEmptySpacesLeading(a.name, allianceNamesWidth) + \
+                        " |"
+            for s in a.secrets:
+                response += " " + str(s.id)
         return response
 
     @staticmethod
@@ -50,8 +68,6 @@ class Alliance(db.Model):
         return "Liitto luotu: " + name
     
     def delete(self):
-#        if User.query.filter_by(alliance=self.id).first() is not None:
-#            return "Ei voida poistaa liittoa - Liitto on käytössä pelaajalla"
         Alliance.query.filter_by(id=self.id).delete()
         db.session.commit()
         return "Liitto poistettu: " + str(self.id) + " | " + self.name
