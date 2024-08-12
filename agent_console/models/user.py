@@ -151,6 +151,23 @@ class User(db.Model, UserMixin):
         task = Task.query.filter_by(id=taskId).first()
         response = task.setClaim(self.id)
         return response
+    
+    def transferCurrency(self, targetId, amount):
+        if int(amount) < 0:
+            return "Ahaa, yritit huijata vai? Ei onnistu."
+        if int(amount) == "0":
+            return "Et voi siirtää " + amount + "$"
+        if self.currency >= int(amount):
+            players = User.getPlayerList()
+            if len(players) > int(targetId):
+                if players[int(targetId)] == self:
+                    return "Siirsit itsellesi " + amount + "$"
+                self.currency -= int(amount)
+                players[int(targetId)].currency += int(amount)
+                db.session.commit()
+                return "Siirretty " + amount + "$ valtiolle " + players[int(targetId)].nation
+            else: return "Valtiota #" + targetId + " ei ole olemassa"
+        else: return "Sinulla ei ole " + amount + "$"
 
     @staticmethod
     def getUser(user_id):
@@ -158,7 +175,7 @@ class User(db.Model, UserMixin):
         return user
     
     @staticmethod
-    def getPlayersSortedForListing():
+    def getPlayerList():
         def sortByFakeAlliance(u):
             return Alliance.getAlliance(u.fakeAlliance).name
         
@@ -177,7 +194,7 @@ class User(db.Model, UserMixin):
         for a in alliances:
             if len(a.name) > allianceNameLength: allianceNameLength = len(a.name)
 
-        users = User.getPlayersSortedForListing()
+        users = User.getPlayerList()
         
         rows = 5
         if len(users) < rows:

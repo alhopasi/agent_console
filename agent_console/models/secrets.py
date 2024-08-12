@@ -37,7 +37,7 @@ class Secret(db.Model):
 
     @staticmethod
     def listSecretsForAdmin():
-        response = "id | taso | nimi"
+        response = "id | taso | salaisuus"
         secrets = Secret.query.all()
         for s in secrets:
             response += "\n" + setEmptySpacesLeading(str(s.id), 2) + \

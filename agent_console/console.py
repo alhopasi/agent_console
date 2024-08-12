@@ -5,6 +5,7 @@ from agent_console.models.alliance import Alliance
 from agent_console.models.message import Message
 from agent_console.models.task import Task
 from agent_console.models.secrets import Secret
+from agent_console.utils import setEmptySpacesLeading, setEmptySpacesTrailing
 
 def parseMessage(msg):
     return re.match("^[a-zA-Z0-9äÄöÖåÅ\?\!,. :\-]*$", msg)
@@ -37,6 +38,16 @@ def printCommands(path):
             if path == "tehtävät":
                 commands += "\n" + "[t] - listaa tehtävät" + \
                             "\n" + "[koodi] - suorita tehtävä koodilla"
+            if path == "agenttitoiminnot":
+                commands += "\n" + "Agenttitoiminnot maksavat $" + \
+                            "\n" + "Varoitus! Toimintoja ei voi perua!" + \
+                            "\n" + \
+                            "\n" + setEmptySpacesLeading("hinta", 5) + " | " + setEmptySpacesTrailing("komento", 12) + " | kuvaus" + \
+                            "\n" + setEmptySpacesLeading("0", 5)     + " | " + setEmptySpacesTrailing("[s # $]", 12) + " | siirrä $ rahaa valtiolle #" + \
+                            "\n" + setEmptySpacesLeading("1", 5)     + " | " + setEmptySpacesTrailing("[k # viesti]", 12) + " | kirjoita viesti valtiolle #" + \
+                            "\n" + setEmptySpacesLeading("3", 5)     + " | " + setEmptySpacesTrailing("[t #]", 12) + " | paljasta valtion # todellinen liitto" + \
+                            "\n" + setEmptySpacesLeading("6", 5)     + " | " + setEmptySpacesTrailing("[salaisuus]", 12) + " | tiimillesi paljastetaan salaisuus" + \
+                            "\n" + setEmptySpacesLeading("5", 5)     + " | " + setEmptySpacesTrailing("[voita]", 12) + " | yritä voittoa tiimillesi"
 
         if current_user.role == "admin":
             commands += "\n"
@@ -49,6 +60,7 @@ def printCommands(path):
                             "\n" + "[t] - hallitse tehtäviä" + \
                             "\n" + "[s] - hallitse salaisuuksia"
     return commands
+
 
 def printAdminAllianceCommands():
     commands = "[ll] - liitot listaa" + \
@@ -107,8 +119,8 @@ def printAdminSecretCommands():
     return commands
 
 
-def tryLogin(msg):
-    user = User.query.filter_by(password=msg).first()
+def tryLogin(password):
+    user = User.query.filter_by(password=password).first()
     if user:
         login_user(user)
         if current_user.role == "player":
@@ -149,6 +161,16 @@ def handleMessage(command, path):
                 if path == "tehtävät":
                     if command == "t": return Task.listTasks()
                     if command: return current_user.tryClaimTask(command)
+                if path == "agenttitoiminnot":
+                    if re.match("s ", command): commands = command.split(" "); return current_user.transferCurrency(commands[1], commands[2])
+
+                    if command == "salaisuus":
+                        None
+
+                            #1 [k # viesti]  | kirjoita viesti valtiolle #" + \
+                            #3 [t #]         | paljasta valtion # todellinen liitto" + \
+                            #6 [salaisuus]   | tiimillesi paljastetaan salaisuus" + \
+                            #5 [voita]       | yritä voittoa tiimillesi"
 
             if current_user.role == "admin":
                 if path == "" and command == "a": return "console.changePath admin"
@@ -199,16 +221,6 @@ def handleMessage(command, path):
                     if re.match("sai ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setId(commands[1])
                     if re.match("sat ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setTier(commands[1])
                     if re.match("sas ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setSecret(commands[1])
-
-
-            # path = "agenttitoiminnot":
-            # varoitus, kun siirtyy tänne, että toiminnot maksavat rahaa!
-            # siirrä rahaa toiselle valtiolle (s id määrä) | hinta 0
-            # kirjoita viesti (k id viesti) | hinta 1
-            # salaisuus (salaisuus) | hinta 3 (random tier kerrallaan, kohti isoa)
-            # paljasta kohteen todellinen liitto | hinta 5
-            # yritä voittaa | hinta 5
-
 
         if not current_user.is_authenticated:
             return tryLogin(command)
