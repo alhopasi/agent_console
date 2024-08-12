@@ -25,7 +25,7 @@ onresize = (event) => {
 
 var curr_line = "";
 var user = "";
-var path = "/";
+var path = "";
 
 term.open(document.getElementById('terminal'));
 
@@ -40,10 +40,16 @@ socket.on('message', function (msg) {
     response = JSON.parse(msg).response;
     if (response.match("console.time ")) { infoTerm.write("  -- " + response.split("console.time ")[1] + " --" + "\r\n"); return; }
     if (response.match("console.clear")) { term.clear(); return; }
+    if (response.match("console.resetPath")) { path = ""; return; }
     if (response.match("console.changePath")) { path = response.split(" ")[1]; return; }
     if (response.match("console.changeUser")) { user = response.split("changeUser ")[1]; return; }
     if (response.match("console.logout")) { user = ""; return; }
-    if (response.match("console.end")) { term.write("\r\n" + user + path + "$ "); return; }
+    if (response.match("console.end")) { 
+        info = "";
+        if (user != "") {info = user + " "};
+        if (path != "") {info = user + ":" + path + " "};
+        term.write("\r\n" + info + "> "); return;
+    }
     term.write(response + "\r\n");
 });
 

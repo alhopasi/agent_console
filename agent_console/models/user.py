@@ -58,10 +58,10 @@ class User(db.Model, UserMixin):
         return response
 
     def setCurrency(self, currency):
-        response = "Pelaajan vanhat rahat: " + str(self.currency)
+        response = "Pelaajan vanhat $: " + str(self.currency)
         self.currency = int(currency.strip())
         db.session.commit()
-        response += ", uudet rahat: " + str(self.currency)
+        response += ", uudet $: " + str(self.currency)
         return response
 
     def setAlliance(self, alliance):
@@ -81,9 +81,9 @@ class User(db.Model, UserMixin):
     def getInfo(self):
         playerInfo = "pelaaja:    " + self.name + \
               "\n" + "valtio:     " + self.nation + \
-              "\n" + "rahat:      " + str(self.currency) + \
+              "\n" + "$:          " + str(self.currency) + \
               "\n" + "liitto:     " + Alliance.getAlliance(self.alliance).name
-        if self.fakeAlliance:
+        if self.fakeAlliance != self.alliance:
               playerInfo += \
               "\n" + "valeliitto: " + Alliance.getAlliance(self.fakeAlliance).name
         playerInfo += \

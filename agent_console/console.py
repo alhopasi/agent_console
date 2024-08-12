@@ -27,7 +27,7 @@ def printCommands(path):
 
         if current_user.role == "player":
             commands += "\n"
-            if path == "/":
+            if path == "":
                 commands += "\n" + "[v] - viestit" + \
                             "\n" + "[t] - tehtävät" + \
                             "\n" + "[a] - agenttitoiminnot"
@@ -40,7 +40,7 @@ def printCommands(path):
 
         if current_user.role == "admin":
             commands += "\n"
-            if path == "/":
+            if path == "":
                 commands += "\n" + "[a] - admin-komennot"
             if path == "admin":
                 commands += "\n" + "[l] - hallitse liittoja" + \
@@ -119,9 +119,9 @@ def tryLogin(msg):
                 unreadMessageAmount = "\n" + "Sinulla on " + str(unreadMessageAmount) + " lukematonta viestiä"
             else: unreadMessageAmount = ""
             return "Kirjautuminen onnistui. Tervetuloa " + current_user.nation + unreadMessageAmount + \
-                "\n" + "console.changeUser " + current_user.nation + "@"
+                "\n" + "console.changeUser " + current_user.nation
         else: return "Kirjautuminen onnistui. Tervetuloa " + current_user.name + \
-                "\n" + "console.changeUser " + current_user.name +"@"
+                "\n" + "console.changeUser " + current_user.name
     else: return "Kirjautuminen epäonnistui"
 
 
@@ -132,17 +132,17 @@ def handleMessage(command, path):
 
         if command == "": return "[?] - komennot"
         if command == ",": return "console.clear" + "\n" + printTitle()
-        if command == ".": return "console.changePath /"
+        if command == ".": return "console.resetPath"
         if command == "?": return printCommands(path)
         if current_user.is_authenticated:
-            if command == "!": logout_user(); return "console.changePath /" + "\n" + "console.clear" + "\n" + "console.logout" + "\n" + printTitle()
+            if command == "!": logout_user(); return "console.resetPath" + "\n" + "console.clear" + "\n" + "console.logout" + "\n" + printTitle()
 
             if current_user.role == "player":
                 if command == "p": return User.listPlayers()
                 if command == "i": return current_user.getInfo()  # vai näytetäänkö komentorivillä?
-                if path == "/" and command == "v": return "console.changePath viestit"
-                if path == "/" and command == "t": return "console.changePath tehtävät"
-                if path == "/" and command == "a": return "console.changePath agenttitoiminnot"
+                if path == "" and command == "v": return "console.changePath viestit"
+                if path == "" and command == "t": return "console.changePath tehtävät"
+                if path == "" and command == "a": return "console.changePath agenttitoiminnot"
                 if path == "viestit":
                     if command == "v": return current_user.messagesList()
                     if re.match("\d+", command): return current_user.messagesRead(command)
@@ -151,7 +151,7 @@ def handleMessage(command, path):
                     if command: return current_user.tryClaimTask(command)
 
             if current_user.role == "admin":
-                if path == "/" and command == "a": return "console.changePath admin"
+                if path == "" and command == "a": return "console.changePath admin"
                 if path == "admin":
                     if command == "l": return printAdminAllianceCommands()
                     if command == "ll": return Alliance.listAlliancesForAdmin()
@@ -199,7 +199,7 @@ def handleMessage(command, path):
                     if re.match("sai ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setId(commands[1])
                     if re.match("sat ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setTier(commands[1])
                     if re.match("sas ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setSecret(commands[1])
-                    
+
 
             # path = "agenttitoiminnot":
             # varoitus, kun siirtyy tänne, että toiminnot maksavat rahaa!

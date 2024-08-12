@@ -115,14 +115,14 @@ class Task(db.Model):
             if taskNameLength < len(t.name): taskNameLength = len(t.name)
             if taskRewardLength < len(str(t.reward)): taskRewardLength = len(str(t.reward))
 
-        tasks = Task.query.filter_by(done="").all()
+        tasks = Task.query.filter_by(done=None).all()
         tasks.sort(key=sortByName)
 
         response = setEmptySpacesLeading("tehtävä", taskNameLength) + " | " + setEmptySpacesLeading("$", taskRewardLength) + " | kuvaus"
         for t in tasks:
             response += "\n" + setEmptySpacesLeading(t.name, taskNameLength) + " | " + setEmptySpacesLeading(str(t.reward), taskRewardLength) + " | " + t.description
 
-        tasks = Task.query.filter(Task.done != "").all()
+        tasks = Task.query.filter(Task.done != None).all()
         tasks.sort(key=sortByName)
         if len(tasks) > 0:
             response += "\n" + \
