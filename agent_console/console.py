@@ -23,7 +23,7 @@ def printCommands(path):
         commands += "\n" + "[.] - päävalikkoon"
         if current_user.role == "player":
             commands += "\n" + "[i] - pelaajan info" + \
-                        "\n" + "[p] - pelaajat"
+                        "\n" + "[p] - muut pelaajat"
         commands += "\n" + "[!] - kirjaudu ulos"
 
         if current_user.role == "player":
@@ -42,12 +42,12 @@ def printCommands(path):
                 commands += "\n" + "Agenttitoiminnot maksavat $" + \
                             "\n" + "Varoitus! Toimintoja ei voi perua!" + \
                             "\n" + \
-                            "\n" + setEmptySpacesLeading("hinta", 5) + " | " + setEmptySpacesTrailing("komento", 12) + " | kuvaus" + \
-                            "\n" + setEmptySpacesLeading("0", 5)     + " | " + setEmptySpacesTrailing("[s # $]", 12) + " | siirrä $ rahaa valtiolle #" + \
-                            "\n" + setEmptySpacesLeading("1", 5)     + " | " + setEmptySpacesTrailing("[k # viesti]", 12) + " | kirjoita viesti valtiolle #" + \
-                            "\n" + setEmptySpacesLeading("3", 5)     + " | " + setEmptySpacesTrailing("[t #]", 12) + " | paljasta valtion # todellinen liitto" + \
-                            "\n" + setEmptySpacesLeading("6", 5)     + " | " + setEmptySpacesTrailing("[salaisuus]", 12) + " | tiimillesi paljastetaan salaisuus" + \
-                            "\n" + setEmptySpacesLeading("5", 5)     + " | " + setEmptySpacesTrailing("[voita]", 12) + " | yritä voittoa tiimillesi"
+                            "\n" + setEmptySpacesLeading("$", 2) + " | " + setEmptySpacesTrailing("komento", 12) + " | kuvaus" + \
+                            "\n" + setEmptySpacesLeading("0", 2)     + " | " + setEmptySpacesTrailing("[s # $]", 12) + " | siirrä $ rahaa valtiolle #" + \
+                            "\n" + setEmptySpacesLeading("1", 2)     + " | " + setEmptySpacesTrailing("[k # viesti]", 12) + " | kirjoita viesti valtiolle #" + \
+                            "\n" + setEmptySpacesLeading("3", 2)     + " | " + setEmptySpacesTrailing("[l #]", 12) + " | paljasta valtion # todellinen liitto" + \
+                            "\n" + setEmptySpacesLeading("6", 2)     + " | " + setEmptySpacesTrailing("[salaisuus]", 12) + " | tiimillesi paljastetaan salaisuus" + \
+                            "\n" + setEmptySpacesLeading("5", 2)     + " | " + setEmptySpacesTrailing("[voita]", 12) + " | yritä voittoa tiimillesi"
 
         if current_user.role == "admin":
             commands += "\n"
@@ -82,7 +82,10 @@ def printAdminUserCommands():
         "\n" + "[pav pelaajan_id,uusi_valtio] - pelaajat aseta valtio" + \
         "\n" + "[pal pelaajan_id,uusi_liitto] - pelaajat aseta liitto" + \
         "\n" + "[pavl pelaajan_id,uusi_liitto] - pelaajat aseta valeliitto" + \
-        "\n" + "[par pelaajan_id,uudet_rahat] - pelaajat aseta rahat"
+        "\n" + "[par pelaajan_id,uudet_rahat] - pelaajat aseta rahat" + \
+        "\n" + "[pat pelaajan_id,toisen_pelaajan_id] - pelaajat aseta tositieto pelaajan liitosta" + \
+        "\n" + "[ppt pelaajan_id,toisen_pelaajan_id] - pelaajat poista tositieto pelaajan liitosta"
+    
     return commands
 
 def printAdminMessageCommands():
@@ -150,7 +153,7 @@ def handleMessage(command, path):
             if command == "!": logout_user(); return "console.resetPath" + "\n" + "console.clear" + "\n" + "console.logout" + "\n" + printTitle()
 
             if current_user.role == "player":
-                if command == "p": return User.listPlayers()
+                if command == "p": return current_user.listPlayers()
                 if command == "i": return current_user.getInfo()  # vai näytetäänkö komentorivillä?
                 if path == "" and command == "v": return "console.changePath viestit"
                 if path == "" and command == "t": return "console.changePath tehtävät"
@@ -163,12 +166,12 @@ def handleMessage(command, path):
                     if command: return current_user.tryClaimTask(command)
                 if path == "agenttitoiminnot":
                     if re.match("s ", command): commands = command.split(" "); return current_user.transferCurrency(commands[1], commands[2])
-
+                    if re.match("l ", command): commands = command.split(" "); return current_user.revealAlliance(User.getPlayerList()[int(commands[1])])
                     if command == "salaisuus":
                         None
 
                             #1 [k # viesti]  | kirjoita viesti valtiolle #" + \
-                            #3 [t #]         | paljasta valtion # todellinen liitto" + \
+                            #3 [l #]         | paljasta valtion # todellinen liitto" + \
                             #6 [salaisuus]   | tiimillesi paljastetaan salaisuus" + \
                             #5 [voita]       | yritä voittoa tiimillesi"
 
@@ -194,6 +197,8 @@ def handleMessage(command, path):
                     if re.match("pal ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setAlliance(commands[1])
                     if re.match("pavl ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setFakeAlliance(commands[1])
                     if re.match("par ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setCurrency(commands[1])
+                    if re.match("pat ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setKnownPlayerAlliance(User.getUser(commands[1]))
+                    if re.match("ppt ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).removeKnownPlayerAlliance(User.getUser(commands[1]))
                     if command == "v": return printAdminMessageCommands()
                     if command == "vl": return Message.listMessagesForAdmin()
                     if re.match("vu ", command): commands = command.split(" ", 1)[1].split(",", 1); return Message.createMessage(commands[0], commands[1])
