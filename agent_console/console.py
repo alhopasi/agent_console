@@ -69,12 +69,16 @@ def printAdminAllianceCommands():
         "\n" + "[lai liiton_id,uusi_id] - liitot aseta id" + \
         "\n" + "[lan liiton_id,uusi_nimi] - liitot aseta nimi" + \
         "\n" + "[las liiton_id,salaisuuden_id] - liitot aseta salaisuus" + \
-        "\n" + "[lps liiton_id,salaisuuden_id] - liitot poista salaisuus"
+        "\n" + "[lps liiton_id,salaisuuden_id] - liitot poista salaisuus" + \
+        "\n" + "[lavo liiton_id,voitto-ohje] - liitot aseta voittoon ohje" + \
+        "\n" + "[lavl liiton_id,voitettavan_liiton_id] - liitot aseta voittoon liitto" + \
+        "\n" + "[lpvl liiton_id] - liitot poista voittoon liitot"
     return commands
 
 def printAdminUserCommands():
     commands = "[pl] - pelaajat listaa" + \
         "\n" + "[pu nimi,salasana,valtio,liitto,valeliitto] - pelaajat uusi" + \
+        "\n" + "[puep nimi] - pelaajat uusi ei-pelaaja" + \
         "\n" + "[pp pelaajan_id] - pelaajat poista" + \
         "\n" + "[pai pelaajan_id,uusi_id] - pelaajat aseta id" + \
         "\n" + "[pan pelaajan_id,uusi_nimi] - pelaajat aseta nimi" + \
@@ -85,7 +89,6 @@ def printAdminUserCommands():
         "\n" + "[par pelaajan_id,uudet_rahat] - pelaajat aseta rahat" + \
         "\n" + "[pat pelaajan_id,toisen_pelaajan_id] - pelaajat aseta tositieto pelaajan liitosta" + \
         "\n" + "[ppt pelaajan_id,toisen_pelaajan_id] - pelaajat poista tositieto pelaajan liitosta"
-    
     return commands
 
 def printAdminMessageCommands():
@@ -121,6 +124,12 @@ def printAdminSecretCommands():
         "\n" + "[sas salaisuuden_id,salaisuus] - salaisuudet aseta salaisuus"
     return commands
 
+def printWinInstructions():
+    return current_user.printPlayerList() + \
+        "\n\n" + current_user.printUserList() + \
+        "\n\n" + Alliance.getAlliance(current_user.alliance).winInstruction + \
+        "\n\n" + "komento: voita # # # ... (esim: voita 2 6 12)"
+
 
 def tryLogin(password):
     user = User.query.filter_by(password=password).first()
@@ -153,7 +162,7 @@ def handleMessage(command, path):
             if command == "!": logout_user(); return "console.resetPath" + "\n" + "console.clear" + "\n" + "console.logout" + "\n" + printTitle()
 
             if current_user.role == "player":
-                if command == "p": return current_user.listPlayers()
+                if command == "p": return current_user.printPlayerList()
                 if command == "i": return current_user.getInfo()  # vai näytetäänkö komentorivillä?
                 if path == "" and command == "v": return "console.changePath viestit"
                 if path == "" and command == "t": return "console.changePath tehtävät"
@@ -167,12 +176,10 @@ def handleMessage(command, path):
                 if path == "agenttitoiminnot":
                     if re.match("s ", command): commands = command.split(" "); return current_user.transferCurrency(commands[1], commands[2])
                     if re.match("l ", command): commands = command.split(" "); return current_user.revealAlliance(User.getPlayerList()[int(commands[1])])
-                    if command == "salaisuus":
-                        None
+                    if re.match("k ", command): commands = command.split(" ", 2); return current_user.sendMessage(User.getPlayerList()[int(commands[1])], commands[2])
+                    if command == "salaisuus": return current_user.revealSecret()
+                    if command == "voita": return printWinInstructions()
 
-                            #1 [k # viesti]  | kirjoita viesti valtiolle #" + \
-                            #3 [l #]         | paljasta valtion # todellinen liitto" + \
-                            #6 [salaisuus]   | tiimillesi paljastetaan salaisuus" + \
                             #5 [voita]       | yritä voittoa tiimillesi"
 
             if current_user.role == "admin":
@@ -186,6 +193,9 @@ def handleMessage(command, path):
                     if re.match("lan ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setName(commands[1])
                     if re.match("las ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setSecret(Secret.getSecret(commands[1]))
                     if re.match("lps ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).removeSecret(Secret.getSecret(commands[1]))
+                    if re.match("lavo ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setWinInstruction(commands[1])
+                    if re.match("lavl ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setWinAlliance(commands[1])
+                    if re.match("lpvl ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).removeWinAlliance(commands[1])
                     if command == "p": return printAdminUserCommands()
                     if command == "pl": return User.listUsersForAdmin()
                     if re.match("pu ", command): commands = command.split(" ", 1)[1].split(","); return User.createUser(commands[0], commands[1], commands[2], commands[3], commands[4])
@@ -199,6 +209,7 @@ def handleMessage(command, path):
                     if re.match("par ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setCurrency(commands[1])
                     if re.match("pat ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setKnownPlayerAlliance(User.getUser(commands[1]))
                     if re.match("ppt ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).removeKnownPlayerAlliance(User.getUser(commands[1]))
+                    if re.match("puep ", command): return User.createNPC(command.split(" ", 1)[1])
                     if command == "v": return printAdminMessageCommands()
                     if command == "vl": return Message.listMessagesForAdmin()
                     if re.match("vu ", command): commands = command.split(" ", 1)[1].split(",", 1); return Message.createMessage(commands[0], commands[1])

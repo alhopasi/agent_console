@@ -10,7 +10,7 @@ Deployment:
 ```flask --app agent_console run -h 0.0.0.0```
 
 Next steps:
-- import agent command path and commands
+- import way to check winning
 - import check if the game has started (startime - time compare on backend)
 - import secret challenge
 - continue developing the application with required features

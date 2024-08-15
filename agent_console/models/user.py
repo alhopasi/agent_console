@@ -4,7 +4,9 @@ from agent_console import db
 from agent_console.models.alliance import Alliance
 from agent_console.models.message import Message
 from agent_console.models.task import Task
+from agent_console.models.secrets import Secret
 from agent_console.utils import setEmptySpacesLeading, setEmptySpacesTrailing
+import random, string
 
 player_to_player_association = db.Table("playersTrueAllianceKnowledge",
     db.Column("sourcePlayer_id", db.Integer, db.ForeignKey("users.id")),
@@ -159,11 +161,6 @@ class User(db.Model, UserMixin):
             db.session.commit()
             return "Tehtävä " + task.name + " suoritettu onnistuneesti! Ansaitsit " + str(task.reward) + " $"
         return "Koodia ei löydy"
-
-    def sendMessage(self, message):
-        db.session.add(Message(self.id, message))
-        db.session.commit()
-        return "Viesti lähetetty: " + self.id + " | " + message
     
     def claimTask(self, taskId):
         task = Task.query.filter_by(id=taskId).first()
@@ -192,13 +189,26 @@ class User(db.Model, UserMixin):
             return "Tiedät jo oman liittosi"
         if player in self.knownPlayers:
             return "Tiedät jo tämän pelaajan liiton."
-        if self.currency >= 3:
-            self.knownPlayers.append(player)
-            player.knownToPlayers.append(self)
-            self.currency -= 3
-            db.session.commit()
+        if self.currency < 3:
+            return "Sinulla ei ole 3 $"
+        self.knownPlayers.append(player)
+        player.knownToPlayers.append(self)
+        self.currency -= 3
+        db.session.commit()
         return "Maksoit 3 $" + \
             "\n" + "Pelaaja " + player.nation + " kuuluu liitton " + Alliance.getAlliance(player.alliance).name
+    
+    def sendMessage(self, player, messageText):
+        if player == self:
+            return "Et voi lähettää itsellesi viestiä"
+        if self.currency < 1:
+            return "Sinulla ei ole 1 $"
+        message = Message(player.id, messageText.strip())
+        self.currency -= 1
+        db.session.add(message)
+        db.session.commit()
+        return "Maksoit 1 $" + \
+            "\n" + "Lähetit viestin valtiolle " + player.nation + ": " + messageText.strip()
 
     @staticmethod
     def getUser(user_id):
@@ -207,18 +217,76 @@ class User(db.Model, UserMixin):
     
     @staticmethod
     def getPlayerList():
-        def sortByFakeAlliance(u):
-            return Alliance.getAlliance(u.fakeAlliance).name
+        def sortByFakeAlliance(p):
+            return Alliance.getAlliance(p.fakeAlliance).name
         
-        def sortByNation(u):
-            return u.nation
+        def sortByNation(p):
+            return p.nation
         
-        users = User.query.filter_by(role="player").all()
-        users.sort(key=sortByNation)
-        users.sort(key=sortByFakeAlliance)
-        return users
+        players = User.query.filter_by(role="player").all()
+        players.sort(key=sortByNation)
+        players.sort(key=sortByFakeAlliance)
+        return players
 
-    def listPlayers(self):
+    def getUserList(self):
+        def sortByName(u):
+            return u.name
+        users = User.query.filter(User.role != "admin").all()
+        users.remove(self)
+        users.sort(key=sortByName)
+        return users
+    
+    def printUserList(self):
+        users = self.getUserList()
+        response = ""
+
+        rows = 5
+        if len(users) < rows:
+            rows = len(users)
+
+        nameLength = 5
+        for u in users:
+            if len(u.name) > nameLength: nameLength = len(u.name)
+
+        usersList = [""] * rows
+
+        header = ""
+        for i, u in enumerate(users):
+                if i % rows == 0:
+                    header += setEmptySpacesLeading("#", 3) + "  | " + setEmptySpacesTrailing("nimi", nameLength)
+                usersList[i % rows] += setEmptySpacesLeading("[" + str(i),3) + "] | " + setEmptySpacesTrailing(u.name, nameLength)
+
+        response = header
+        for row in usersList:
+            response += "\n" + row
+        return response
+    
+    def revealSecret(self):
+        def sortBySecretTier(s):
+            return s.tier
+
+        if self.currency < 6:
+            return "Sinulla ei ole 6 $"
+        secrets = Secret.query.all()
+        filtered_secrets = []
+        a = Alliance.getAlliance(self.alliance)
+        for s in secrets:
+            if a not in s.alliances:
+                filtered_secrets.append(s)
+
+        if len(filtered_secrets) == 0:
+            return "Liittosi tietää jo kaikki salaisuudet"
+
+        random.shuffle(filtered_secrets)
+        filtered_secrets.sort(key=sortBySecretTier)
+        secret = filtered_secrets[0]
+        a.secrets.append(secret)
+        self.currency -= 6
+        db.session.commit()
+        return "Maksoit 6 $" + \
+            "\n" + "Paljastit salaisuuden: " + secret.secret
+
+    def printPlayerList(self):
         alliances = Alliance.query.all()
         fakeAllianceText = "Liitto"
         fakeAllianceNameLength = len(fakeAllianceText)
@@ -226,41 +294,41 @@ class User(db.Model, UserMixin):
         for a in alliances:
             if len(a.name) > fakeAllianceNameLength: fakeAllianceNameLength = len(a.name)
 
-        users = User.getPlayerList()
+        players = User.getPlayerList()
         
         rows = 5
-        if len(users) < rows:
-            rows = len(users)
+        if len(players) < rows:
+            rows = len(players)
 
         header = ""
 
         nations = [""] * rows
 
         if len(self.knownPlayers) == 0:
-            for i, u in enumerate(users):
+            for i, u in enumerate(players):
                 if i % rows == 0:
-                    header += " #  | " + setEmptySpacesTrailing(fakeAllianceText, fakeAllianceNameLength) + " | " + setEmptySpacesTrailing("Valtio", 25)
-                nations[i % rows] += "[" + str(i) + "] | " + setEmptySpacesTrailing(Alliance.getAlliance(u.fakeAlliance).name,  fakeAllianceNameLength) + " | " + setEmptySpacesTrailing(u.nation, 25)
+                    header += setEmptySpacesLeading("#", 3) + "  | " + setEmptySpacesTrailing(fakeAllianceText, fakeAllianceNameLength) + " | " + setEmptySpacesTrailing("Valtio", 25)
+                nations[i % rows] += setEmptySpacesLeading("[" + str(i), 3) + "] | " + setEmptySpacesTrailing(Alliance.getAlliance(u.fakeAlliance).name, fakeAllianceNameLength) + " | " + setEmptySpacesTrailing(u.nation, 25)
         else:
             allianceText = "Liitto"
             allianceNameLength = len(allianceText) if len(allianceText) > fakeAllianceNameLength else fakeAllianceNameLength
             fakeAllianceText = "Valeliitto"
             fakeAllianceNameLength = len(fakeAllianceText) if len(fakeAllianceText) > fakeAllianceNameLength else fakeAllianceNameLength
-            for i, u in enumerate(users):
+            for i, u in enumerate(players):
                 if i % rows == 0:
-                    header += " #  | " + setEmptySpacesTrailing(fakeAllianceText, fakeAllianceNameLength) + " | " + setEmptySpacesTrailing(allianceText, allianceNameLength) + " | " + setEmptySpacesTrailing("Valtio", 25)
-                nations[i % rows] += "[" + str(i) + "] | " + setEmptySpacesTrailing(Alliance.getAlliance(u.fakeAlliance).name, fakeAllianceNameLength) + " | "
+                    header += setEmptySpacesLeading("#", 3) + " | " + setEmptySpacesTrailing(fakeAllianceText, fakeAllianceNameLength) + " | " + setEmptySpacesTrailing(allianceText, allianceNameLength) + " | " + setEmptySpacesTrailing("Valtio", 25)
+                nations[i % rows] += setEmptySpacesLeading("[" + str(i), 3) + "] | " + setEmptySpacesTrailing(Alliance.getAlliance(u.fakeAlliance).name, fakeAllianceNameLength) + " | "
                 if u in self.knownPlayers:
                     nations[i % rows] += setEmptySpacesTrailing(Alliance.getAlliance(u.alliance).name, allianceNameLength)
                 else:
                     nations[i % rows] += setEmptySpacesTrailing("", allianceNameLength) 
                 nations[i % rows] += " | " + setEmptySpacesTrailing(u.nation, 25)
 
-        response = ""
+        response = header
         for row in nations:
-            response += row + "\n"
+            response += "\n" + row
 
-        return header + "\n" + response
+        return response
 
     
     @staticmethod
@@ -271,10 +339,12 @@ class User(db.Model, UserMixin):
         userColumnSizes[1] = 8
         userColumnSizes[2] = 6
         for u in users:
-            if userColumnSizes[0] < len(u.name): userColumnSizes[0] = len(u.name)
-            if userColumnSizes[1] < len(u.password): userColumnSizes[1] = len(u.password)
-            if userColumnSizes[2] < len(u.nation): userColumnSizes[2] = len(u.nation)
-        response = "id" + \
+            if u.role != "npc":
+                if userColumnSizes[0] < len(u.name): userColumnSizes[0] = len(u.name)
+                if userColumnSizes[1] < len(u.password): userColumnSizes[1] = len(u.password)
+                if userColumnSizes[2] < len(u.nation): userColumnSizes[2] = len(u.nation)
+        response = [""] * 4
+        response[0] = " id" + \
             " | " + setEmptySpacesLeading("nimi", userColumnSizes[0]) + \
             " | " + setEmptySpacesLeading("salasana", userColumnSizes[1]) + \
             " | " + setEmptySpacesLeading("valtio", userColumnSizes[2]) + \
@@ -284,19 +354,40 @@ class User(db.Model, UserMixin):
             " | " + setEmptySpacesLeading("rooli", 6) + \
             " | " + "tieto pelaajan liitosta"
         for u in users:
-            response += "\n" + setEmptySpacesLeading(str(u.id), 2) + \
-                        " | " + setEmptySpacesLeading(u.name, userColumnSizes[0]) + \
-                        " | " + setEmptySpacesLeading(u.password, userColumnSizes[1]) + \
-                        " | " + setEmptySpacesLeading(u.nation, userColumnSizes[2]) + \
-                        " | " + setEmptySpacesLeading(str(u.currency), 2) + \
-                        " | " + setEmptySpacesLeading(str(u.alliance), 6) + \
-                        " | " + setEmptySpacesLeading(str(u.fakeAlliance), 10) + \
-                        " | " + setEmptySpacesLeading(str(u.role), 6) + \
-                        " |"
-            for p in u.knownPlayers:
-                response += " " + str(p.id)
-        return response
-    
+            if u.role == "player":
+                response[2] += "\n" + setEmptySpacesLeading(str(u.id), 3) + \
+                            " | " + setEmptySpacesLeading(u.name, userColumnSizes[0]) + \
+                            " | " + setEmptySpacesLeading(u.password, userColumnSizes[1]) + \
+                            " | " + setEmptySpacesLeading(u.nation, userColumnSizes[2]) + \
+                            " | " + setEmptySpacesLeading(str(u.currency), 2) + \
+                            " | " + setEmptySpacesLeading(str(u.alliance), 6) + \
+                            " | " + setEmptySpacesLeading(str(u.fakeAlliance), 10) + \
+                            " | " + setEmptySpacesLeading(str(u.role), 6) + \
+                            " |"
+                for p in u.knownPlayers:
+                    response[2] += " " + str(p.id)
+            elif u.role == "admin":
+                response[1] += "\n" + setEmptySpacesLeading(str(u.id), 3) + \
+                            " | " + setEmptySpacesLeading(u.name, userColumnSizes[0]) + \
+                            " | " + setEmptySpacesLeading(u.password, userColumnSizes[1]) + \
+                            " | " + setEmptySpacesLeading("", userColumnSizes[2]) + \
+                            " | " + setEmptySpacesLeading("", 2) + \
+                            " | " + setEmptySpacesLeading("", 6) + \
+                            " | " + setEmptySpacesLeading("", 10) + \
+                            " | " + setEmptySpacesLeading(str(u.role), 6) + \
+                            " |"
+            elif u.role == "npc":
+                response[3] += "\n" + setEmptySpacesLeading(str(u.id), 3) + \
+                            " | " + setEmptySpacesLeading(u.name, userColumnSizes[0]) + \
+                            " | " + setEmptySpacesLeading("", userColumnSizes[1]) + \
+                            " | " + setEmptySpacesLeading("", userColumnSizes[2]) + \
+                            " | " + setEmptySpacesLeading("", 2) + \
+                            " | " + setEmptySpacesLeading("", 6) + \
+                            " | " + setEmptySpacesLeading("", 10) + \
+                            " | " + setEmptySpacesLeading(str(u.role), 6) + \
+                            " |"
+        return ''.join(response[i] for i in range(len(response)))
+
     @staticmethod
     def createUser(name, password, nation, alliance, fakeAlliance):
         if Alliance.query.filter_by(id=alliance.strip()).first() is not None:
@@ -322,7 +413,14 @@ class User(db.Model, UserMixin):
         User.query.filter_by(id=self.id).delete()
         db.session.commit()
         return response + "Käyttäjä poistettu: " + str(self.id) + " | " + self.name + " | " + self.password + " | " + self.nation + " | " + str(self.currency) + " | " + str(self.alliance) + " | " + str(self.fakeAlliance)
-        
+
+    @staticmethod
+    def createNPC(name):
+        password = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(24))
+        user = User(name, password, nation="", alliance=None, fakeAlliance=None, role="npc")
+        db.session.add(user)
+        db.session.commit()
+        return "Uusi ei-pelaaja luotu: " + name
 
 @event.listens_for(User.__table__, "after_create")
 def createAdminUser(*args, **kwargs):

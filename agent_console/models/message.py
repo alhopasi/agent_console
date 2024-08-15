@@ -11,7 +11,7 @@ class Message(db.Model):
     date_created = db.Column(db.DateTime, default=lambda: datetime.now(tz=timezone(timedelta(seconds=10800), 'EEST')))
 
     def __init__(self, user_id, message):
-        self.user_id = user_id.strip()
+        self.user_id = user_id
         self.message = message.strip()
 
     def setId(self, id):
