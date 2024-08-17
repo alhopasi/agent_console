@@ -6,7 +6,7 @@ from agent_console.models.message import Message
 from agent_console.models.task import Task
 from agent_console.models.secrets import Secret
 from agent_console.utils import setEmptySpacesLeading, setEmptySpacesTrailing
-import random, string
+import random, string, re
 
 player_to_player_association = db.Table("playersTrueAllianceKnowledge",
     db.Column("sourcePlayer_id", db.Integer, db.ForeignKey("users.id")),
@@ -253,8 +253,11 @@ class User(db.Model, UserMixin):
         header = ""
         for i, u in enumerate(users):
                 if i % rows == 0:
-                    header += setEmptySpacesLeading("#", 3) + "  | " + setEmptySpacesTrailing("nimi", nameLength)
-                usersList[i % rows] += setEmptySpacesLeading("[" + str(i),3) + "] | " + setEmptySpacesTrailing(u.name, nameLength)
+                    if i > 0: header += "   | "
+                    header += setEmptySpacesLeading("#", 3) + "  " + setEmptySpacesTrailing("nimi", nameLength)
+                if i >= rows:
+                    usersList[i % rows] += "   | "
+                usersList[i % rows] += setEmptySpacesLeading("[" + str(i),3) + "] " + setEmptySpacesTrailing(u.name, nameLength)
 
         response = header
         for row in usersList:
@@ -330,6 +333,50 @@ class User(db.Model, UserMixin):
 
         return response
 
+    def tryWin(self, userIdsToCheck):
+        if not re.match("^(?:\d+ ?)+$", userIdsToCheck.strip()):
+            return "Tarkasta komentosi - 'voita " + userIdsToCheck + "' ei ole oikeassa muodossa"
+        userIdsToCheck = userIdsToCheck.strip().split(" ")
+        userIdsToCheck = list(set(userIdsToCheck))  #remove duplicates
+        users = self.getUserList()
+        for u in userIdsToCheck:
+            if len(users) <= int(u):
+                return "Tarkasta komentosi - henkilöä " + u + " ei löydy henkilölistalta."
+        
+        if self.currency < 5:
+            return "Sinulla ei ole 5 $"
+        self.currency -= 5
+        db.session.commit()
+        
+        toWinAlliances = Alliance.getAlliance(self.alliance).toWinAlliances
+
+        winner = False
+        winText = ""
+
+        for a in toWinAlliances:
+            allUsersInAlliance = True
+            usersToFind = User.query.filter_by(alliance = a.id).all()
+            for u in userIdsToCheck:
+                user = users[int(u)]
+                if user in usersToFind:
+                    usersToFind.remove(user)
+                else:
+                    allUsersInAlliance = False
+                    break
+            if len(usersToFind) == 0 and allUsersInAlliance:
+                winner = True
+                winText = "  -- Voittaja on " + Alliance.getAlliance(self.alliance).name + "!  " + self.name + "(" + self.nation + ")" + " sai selville " + a.name + " liiton kaikki jäsenet! --"
+                break
+        
+        if winner:
+            return "game.end" + \
+                "\n" + "game.end.text " + winText + \
+                "\n" + "Onneksi olkoon, voitit pelin!"
+
+        return "Maksoit 5 $" + \
+            "\n" + "Hyvä yritys, mutta väärin meni"
+
+        
     
     @staticmethod
     def listUsersForAdmin():

@@ -6,9 +6,42 @@ from agent_console.models.message import Message
 from agent_console.models.task import Task
 from agent_console.models.secrets import Secret
 from agent_console.utils import setEmptySpacesLeading, setEmptySpacesTrailing
+from datetime import datetime, timezone, timedelta
+
+class GameState():
+    startTime = "2024-09-15 14:45:00"
+    started = False
+    infoText = ""
+
+game = GameState()
+
+def getInfo():
+    if game.infoText:
+        return "console.info " + game.infoText
+    if not game.started:
+        startTime = datetime.strptime(game.startTime, "%Y-%m-%d %H:%M:%S")
+        currentTime = datetime.strptime(getCurrentTime(), "%Y-%m-%d %H:%M:%S")
+        relativeStartTime = startTime - currentTime
+        if relativeStartTime > timedelta(0):
+            if relativeStartTime.days > 0:
+                return "console.info   -- Pelin alkuun " + str(relativeStartTime.days) + " päivää --"
+            hours = str(relativeStartTime.seconds // 3600)
+            minutes = str(relativeStartTime.seconds // 60 % 60)
+            seconds = str(relativeStartTime.seconds % 60)
+            if len(hours) == 1: hours = "0" + hours
+            if len(minutes) == 1: minutes = "0" + minutes
+            if len(seconds) == 1: seconds = "0" + seconds
+            return "console.info   -- Pelin alkuun " + hours + ":" + minutes + ":" + seconds + " --"
+        else:
+            game.started = True
+
+    return "console.info   -- " + getCurrentTime() + " --"
 
 def parseMessage(msg):
     return re.match("^[a-zA-Z0-9äÄöÖåÅ\?\!,. :\-]*$", msg)
+
+def getCurrentTime():
+    return datetime.now(tz=timezone(timedelta(seconds=10800), 'EEST')).strftime("%Y-%m-%d %H:%M:%S")
 
 def printTitle():
     title = '## ERITTÄIN SALAINEN OHJELMA ##'
@@ -47,7 +80,8 @@ def printCommands(path):
                             "\n" + setEmptySpacesLeading("1", 2)     + " | " + setEmptySpacesTrailing("[k # viesti]", 12) + " | kirjoita viesti valtiolle #" + \
                             "\n" + setEmptySpacesLeading("3", 2)     + " | " + setEmptySpacesTrailing("[l #]", 12) + " | paljasta valtion # todellinen liitto" + \
                             "\n" + setEmptySpacesLeading("6", 2)     + " | " + setEmptySpacesTrailing("[salaisuus]", 12) + " | tiimillesi paljastetaan salaisuus" + \
-                            "\n" + setEmptySpacesLeading("5", 2)     + " | " + setEmptySpacesTrailing("[voita]", 12) + " | yritä voittoa tiimillesi"
+                            "\n" + setEmptySpacesLeading("0", 2)     + " | " + setEmptySpacesTrailing("[voita]", 12) + " | ohjeet voittamiseen" + \
+                            "\n" + setEmptySpacesLeading("5", 2)     + " | " + setEmptySpacesTrailing("[voita # ...]", 12) + " | yritä voittoa liitollesi"
 
         if current_user.role == "admin":
             commands += "\n"
@@ -58,9 +92,27 @@ def printCommands(path):
                             "\n" + "[p] - hallitse pelaajia" + \
                             "\n" + "[v] - hallitse viestejä" + \
                             "\n" + "[t] - hallitse tehtäviä" + \
-                            "\n" + "[s] - hallitse salaisuuksia"
+                            "\n" + "[s] - hallitse salaisuuksia" + \
+                            "\n" + "[peli] - hallitse peliä"
     return commands
 
+def setGameStartTime(timestamp):
+    format = "%Y-%m-%d %H:%M:%S"
+    if datetime.strptime(timestamp, format):
+        game.startTime = timestamp
+        return "Aloitusaika asetettu " + timestamp
+
+def setGameStart():
+    game.started = True
+    return "peli aloitettu"
+
+def setGameEnd():
+    game.started = False
+    return "peli lopetettu"
+
+def setGameInfoText(text):
+    game.infoText = text
+    return "infoteksti asetettu: " + text
 
 def printAdminAllianceCommands():
     commands = "[ll] - liitot listaa" + \
@@ -73,6 +125,13 @@ def printAdminAllianceCommands():
         "\n" + "[lavo liiton_id,voitto-ohje] - liitot aseta voittoon ohje" + \
         "\n" + "[lavl liiton_id,voitettavan_liiton_id] - liitot aseta voittoon liitto" + \
         "\n" + "[lpvl liiton_id] - liitot poista voittoon liitot"
+    return commands
+
+def printAdminGameCommands():
+    commands = "[peli aloita] - käynnistä peli" +\
+        "\n" + "[peli lopeta] - lopeta peli" + \
+        "\n" + "[peli info infoteksti] - aseta infoteksti" + \
+        "\n" + "[peli aloitus YYYY-MM-DD HH-MM-SS] - aseta pelin aloitusaika"
     return commands
 
 def printAdminUserCommands():
@@ -150,6 +209,8 @@ def tryLogin(password):
 
 
 def handleMessage(command, path):
+        if command == "get_info":
+            return getInfo()
 
     #try:
         if not parseMessage(command): return "No cheating!"
@@ -163,10 +224,12 @@ def handleMessage(command, path):
 
             if current_user.role == "player":
                 if command == "p": return current_user.printPlayerList()
-                if command == "i": return current_user.getInfo()  # vai näytetäänkö komentorivillä?
+                if command == "i": return current_user.getInfo()
                 if path == "" and command == "v": return "console.changePath viestit"
                 if path == "" and command == "t": return "console.changePath tehtävät"
                 if path == "" and command == "a": return "console.changePath agenttitoiminnot"
+                if not game.started:
+                        return "Peli ei ole käynnissä"
                 if path == "viestit":
                     if command == "v": return current_user.messagesList()
                     if re.match("\d+", command): return current_user.messagesRead(command)
@@ -179,8 +242,16 @@ def handleMessage(command, path):
                     if re.match("k ", command): commands = command.split(" ", 2); return current_user.sendMessage(User.getPlayerList()[int(commands[1])], commands[2])
                     if command == "salaisuus": return current_user.revealSecret()
                     if command == "voita": return printWinInstructions()
-
-                            #5 [voita]       | yritä voittoa tiimillesi"
+                    if re.match("voita ", command):
+                        commands = command.split(" ", 1)
+                        response = current_user.tryWin(commands[1])
+                        if re.match("game\.end", response):
+                            lines = response.splitlines()
+                            for line in lines:
+                                if line == "game.end": game.started = False
+                                elif re.match("game.end.text ", line): game.infoText = line.split("game.end.text ", 1)[1]
+                                else: response = line
+                        return response
 
             if current_user.role == "admin":
                 if path == "" and command == "a": return "console.changePath admin"
@@ -237,6 +308,12 @@ def handleMessage(command, path):
                     if re.match("sai ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setId(commands[1])
                     if re.match("sat ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setTier(commands[1])
                     if re.match("sas ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setSecret(commands[1])
+                    if command == "peli": return printAdminGameCommands()
+                    if command == "peli aloita": return setGameStart()
+                    if command == "peli lopeta": return setGameEnd()
+                    if command == "peli info": return setGameInfoText("")
+                    if re.match("peli info ", command): return setGameInfoText(command.split("peli info ")[1])
+                    if re.match("peli aloitus ", command): return setGameStartTime(command.split("peli aloitus ")[1])
 
         if not current_user.is_authenticated:
             return tryLogin(command)

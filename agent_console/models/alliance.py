@@ -1,5 +1,5 @@
 from agent_console import db
-from agent_console.utils import setEmptySpacesLeading, setEmptySpacesTrailing
+from agent_console.utils import setEmptySpacesLeading
 
 alliance_secret_association = db.Table("alliances_secrets",
     db.Column("alliance_id", db.Integer, db.ForeignKey("alliances.id")),

@@ -38,7 +38,7 @@ term.prompt = () => {
 
 socket.on('message', function (msg) {
     response = JSON.parse(msg).response;
-    if (response.match("console.time ")) { infoTerm.write("  -- " + response.split("console.time ")[1] + " --" + "\r\n"); return; }
+    if (response.match("console.info ")) { infoTerm.write(response.split("console.info ")[1] + "\r\n"); return; }
     if (response.match("console.clear")) { term.clear(); return; }
     if (response.match("console.resetPath")) { path = ""; return; }
     if (response.match("console.changePath")) { path = response.split(" ")[1]; return; }
@@ -94,12 +94,12 @@ term.write(colors[colorcode]);
 infoTerm.write(colors[colorcode]);
 
 
-function getTime() {
+function getInfo() {
     if (user != "") {
-        let data = { term: "info", command: "get_time" };
+        let data = { term: "info", command: "get_info" };
         socket.send(JSON.stringify(data));
     }
     else { infoTerm.clear()}
 }
 
-setInterval(getTime, 1000)
+setInterval(getInfo, 1000)
