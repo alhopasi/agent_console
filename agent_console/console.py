@@ -5,6 +5,7 @@ from agent_console.models.alliance import Alliance
 from agent_console.models.message import Message
 from agent_console.models.task import Task
 from agent_console.models.secrets import Secret
+from agent_console.models.challenge import Challenge
 from agent_console.utils import setEmptySpacesLeading, setEmptySpacesTrailing
 from datetime import datetime, timezone, timedelta
 
@@ -124,7 +125,9 @@ def printAdminAllianceCommands():
         "\n" + "[lps liiton_id,salaisuuden_id] - liitot poista salaisuus" + \
         "\n" + "[lavo liiton_id,voitto-ohje] - liitot aseta voittoon ohje" + \
         "\n" + "[lavl liiton_id,voitettavan_liiton_id] - liitot aseta voittoon liitto" + \
-        "\n" + "[lpvl liiton_id] - liitot poista voittoon liitot"
+        "\n" + "[lpvl liiton_id] - liitot poista voittoon liitot" + \
+        "\n" + "[lah liiton_id,haasteen_id,pelaajan_id] - liitot aseta haaste suoritetuksi" + \
+        "\n" + "[lph liiton_id,haasteen_id] - liitot poista haaste"
     return commands
 
 def printAdminGameCommands():
@@ -181,6 +184,15 @@ def printAdminSecretCommands():
         "\n" + "[sai salaisuuden_id,uusi_id] - salaisuudet aseta id" + \
         "\n" + "[sat salaisuuden_id,taso] - salaisuudet aseta taso" + \
         "\n" + "[sas salaisuuden_id,salaisuus] - salaisuudet aseta salaisuus"
+    return commands
+
+def printAdminChallengeCommands():
+    commands = "[hl] - haasteet listaa" + \
+        "\n" + "[hu koodi,kuvaus] - haasteet uusi" + \
+        "\n" + "[hp haasteen_id] - haasteet poista" + \
+        "\n" + "[hai haasteen_id,uusi_id] - haasteet aseta id" + \
+        "\n" + "[hako haasteen_id,uusi_koodi] - haasteet aseta koodi" + \
+        "\n" + "[haku haasteen_id,uusi_kuvaus] - haasteet aseta kuvaus"
     return commands
 
 def printWinInstructions():
@@ -267,6 +279,8 @@ def handleMessage(command, path):
                     if re.match("lavo ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setWinInstruction(commands[1])
                     if re.match("lavl ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setWinAlliance(commands[1])
                     if re.match("lpvl ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).removeWinAlliance(commands[1])
+                    if re.match("lah ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setChallengeDone(Challenge.getChallenge(commands[1]),User.getUser(commands[2]))
+                    if re.match("lph ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).removeChallengeDone(Challenge.getChallenge(commands[1]))
                     if command == "p": return printAdminUserCommands()
                     if command == "pl": return User.listUsersForAdmin()
                     if re.match("pu ", command): commands = command.split(" ", 1)[1].split(","); return User.createUser(commands[0], commands[1], commands[2], commands[3], commands[4])
@@ -308,12 +322,22 @@ def handleMessage(command, path):
                     if re.match("sai ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setId(commands[1])
                     if re.match("sat ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setTier(commands[1])
                     if re.match("sas ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setSecret(commands[1])
+                    if command == "h": return printAdminChallengeCommands()
+                    if command == "hl": return Challenge.adminListChallenges()
+                    if re.match("hu ", command): commands = command.split(" ", 1)[1].split(","); return Challenge.createChallenge(commands[0], commands[1])
+                    if re.match("hp ", command): return Challenge.getChallenge(command.split(" ")[1]).delete()
+                    if re.match("hai ", command): commands = command.split(" ", 1)[1].split(","); return Challenge.getChallenge(commands[0]).adminSetId(commands[1])
+                    if re.match("hako ", command): commands = command.split(" ", 1)[1].split(","); return Challenge.getChallenge(commands[0]).adminSetCode(commands[1])
+                    if re.match("haku ", command): commands = command.split(" ", 1)[1].split(",", 1); return Challenge.getChallenge(commands[0]).adminSetDescription(commands[1])
                     if command == "peli": return printAdminGameCommands()
                     if command == "peli aloita": return setGameStart()
                     if command == "peli lopeta": return setGameEnd()
                     if command == "peli info": return setGameInfoText("")
                     if re.match("peli info ", command): return setGameInfoText(command.split("peli info ")[1])
                     if re.match("peli aloitus ", command): return setGameStartTime(command.split("peli aloitus ")[1])
+
+
+
 
         if not current_user.is_authenticated:
             return tryLogin(command)

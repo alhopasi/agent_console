@@ -11,6 +11,8 @@ Deployment:
 
 Next steps:
 - import secret challenge
+  if secret challenge started - show on all player info
+  possibility for player to enter the secret code for next challenge for their alliance
 - continue developing the application with required features
 
 note to self: gunicorn don't work with flask-socketio - look for alternates or stay with flask development server ?

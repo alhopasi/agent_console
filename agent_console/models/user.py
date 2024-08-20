@@ -5,8 +5,10 @@ from agent_console.models.alliance import Alliance
 from agent_console.models.message import Message
 from agent_console.models.task import Task
 from agent_console.models.secrets import Secret
+from agent_console.models.challenge import Challenge
 from agent_console.utils import setEmptySpacesLeading, setEmptySpacesTrailing
 import random, string, re
+from sqlalchemy.sql import text
 
 player_to_player_association = db.Table("playersTrueAllianceKnowledge",
     db.Column("sourcePlayer_id", db.Integer, db.ForeignKey("users.id")),
@@ -26,7 +28,6 @@ class User(db.Model, UserMixin):
     fakeAlliance = db.Column(db.Integer, db.ForeignKey("alliances.id"), nullable=True)
     knownPlayers = db.relationship("User", secondary=player_to_player_association, back_populates="knownToPlayers", primaryjoin=id == player_to_player_association.c.targetPlayer_id, secondaryjoin=id == player_to_player_association.c.sourcePlayer_id)
     knownToPlayers = db.relationship("User", secondary=player_to_player_association, back_populates="knownPlayers", primaryjoin=id == player_to_player_association.c.sourcePlayer_id, secondaryjoin=id == player_to_player_association.c.targetPlayer_id)
-    
 
 
     def __init__(self, name, password, nation="", alliance=None, fakeAlliance=None, role="player"):
@@ -121,9 +122,21 @@ class User(db.Model, UserMixin):
 
         secrets = Alliance.getAlliance(self.alliance).secrets
         if len(secrets) > 0:
-            playerInfo += "\n" + "tiimin paljastetut salaisuudet:"
+            playerInfo += "\n" + "liiton paljastetut salaisuudet:"
             for s in secrets:
                 playerInfo += "\n  " + s.secret
+
+        challenges = Alliance.getAlliance(self.alliance).challengesCompleted
+        
+        stmt = text("SELECT * FROM allianceChallengeTable")
+        with db.engine.connect() as conn:
+            res = conn.execute(stmt)
+        values = [ e[2] for e in res ]
+
+        if len(challenges) > 0:
+            playerInfo += "\n" + "liiton suoritetut haastetehtävät:"
+            for i, c in enumerate(challenges):
+                playerInfo += "\n  " + str(c.id) + " - suorittanut: " + User.getUser(values[i]).nation
 
         return playerInfo
     
@@ -365,7 +378,7 @@ class User(db.Model, UserMixin):
                     break
             if len(usersToFind) == 0 and allUsersInAlliance:
                 winner = True
-                winText = "  -- Voittaja on " + Alliance.getAlliance(self.alliance).name + "!  " + self.name + "(" + self.nation + ")" + " sai selville " + a.name + " liiton kaikki jäsenet! --"
+                winText = "  -- Voittaja on " + Alliance.getAlliance(self.alliance).name + "!  " + self.name + " (" + self.nation + ")" + " sai selville " + a.name + " liiton kaikki jäsenet! --"
                 break
         
         if winner:
