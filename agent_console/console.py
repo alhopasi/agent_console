@@ -10,15 +10,17 @@ from agent_console.utils import setEmptySpacesLeading, setEmptySpacesTrailing
 from datetime import datetime, timezone, timedelta
 
 class GameState():
-    startTime = "2024-09-15 14:45:00"
+    #startTime = "2024-09-15 14:45:00"
+    startTime = "2024-01-01 00:00:00"
     started = False
-    infoText = ""
+    finished = False
+    infoText = "PELI KÄYNNISSÄ"
+    firstChallenge = 0
+    topChallenge = 0
 
 game = GameState()
 
 def getInfo():
-    if game.infoText:
-        return "console.info " + game.infoText
     if not game.started:
         startTime = datetime.strptime(game.startTime, "%Y-%m-%d %H:%M:%S")
         currentTime = datetime.strptime(getCurrentTime(), "%Y-%m-%d %H:%M:%S")
@@ -35,8 +37,7 @@ def getInfo():
             return "console.info   -- Pelin alkuun " + hours + ":" + minutes + ":" + seconds + " --"
         else:
             game.started = True
-
-    return "console.info   -- " + getCurrentTime() + " --"
+    return "console.info " + getCurrentTime() + " | " + game.infoText
 
 def parseMessage(msg):
     return re.match("^[a-zA-Z0-9äÄöÖåÅ\?\!,. :\-]*$", msg)
@@ -66,6 +67,8 @@ def printCommands(path):
                 commands += "\n" + "[v] - viestit" + \
                             "\n" + "[t] - tehtävät" + \
                             "\n" + "[a] - agenttitoiminnot"
+                if len(current_user.challengesCompleted) > 0:
+                    commands += "\n" + "[h] - haastetehtävä"
             if path == "viestit":
                 commands += "\n" + "[v] - listaa viestit" + \
                             "\n" + "[#] - lue viesti #"
@@ -83,6 +86,13 @@ def printCommands(path):
                             "\n" + setEmptySpacesLeading("6", 2)     + " | " + setEmptySpacesTrailing("[salaisuus]", 12) + " | tiimillesi paljastetaan salaisuus" + \
                             "\n" + setEmptySpacesLeading("0", 2)     + " | " + setEmptySpacesTrailing("[voita]", 12) + " | ohjeet voittamiseen" + \
                             "\n" + setEmptySpacesLeading("5", 2)     + " | " + setEmptySpacesTrailing("[voita # ...]", 12) + " | yritä voittoa liitollesi"
+            if path == "haaste":
+                commands += "\n" + "Voita 10 haastetta ja voita peli liitollesi!" + \
+                            "\n" + "Jokaisessa haasteessa pitää saada [koodi]" + \
+                            "\n" + "Syötä koodi tällä haastesivulla!" + \
+                            "\n" + \
+                            "\n" + "[h] - listaa haasteet" + \
+                            "\n" + "[koodi] - suorita haastetehtävä"
 
         if current_user.role == "admin":
             commands += "\n"
@@ -94,6 +104,7 @@ def printCommands(path):
                             "\n" + "[v] - hallitse viestejä" + \
                             "\n" + "[t] - hallitse tehtäviä" + \
                             "\n" + "[s] - hallitse salaisuuksia" + \
+                            "\n" + "[h] - hallitse haasteita" + \
                             "\n" + "[peli] - hallitse peliä"
     return commands
 
@@ -103,13 +114,15 @@ def setGameStartTime(timestamp):
         game.startTime = timestamp
         return "Aloitusaika asetettu " + timestamp
 
-def setGameStart():
-    game.started = True
-    return "peli aloitettu"
+def toggleGameStart():
+    game.started = not game.started
+    if game.started: return "peli aloitettu"
+    else: return "peli lopetettu"
 
-def setGameEnd():
-    game.started = False
-    return "peli lopetettu"
+def toggleGameFinished():
+    game.finished = not game.finished
+    if game.finished: return "peli voitettu"
+    else: return "peli ei-voitettu"
 
 def setGameInfoText(text):
     game.infoText = text
@@ -125,9 +138,7 @@ def printAdminAllianceCommands():
         "\n" + "[lps liiton_id,salaisuuden_id] - liitot poista salaisuus" + \
         "\n" + "[lavo liiton_id,voitto-ohje] - liitot aseta voittoon ohje" + \
         "\n" + "[lavl liiton_id,voitettavan_liiton_id] - liitot aseta voittoon liitto" + \
-        "\n" + "[lpvl liiton_id] - liitot poista voittoon liitot" + \
-        "\n" + "[lah liiton_id,haasteen_id,pelaajan_id] - liitot aseta haaste suoritetuksi" + \
-        "\n" + "[lph liiton_id,haasteen_id] - liitot poista haaste"
+        "\n" + "[lpvl liiton_id] - liitot poista voittoon liitot"
     return commands
 
 def printAdminGameCommands():
@@ -150,7 +161,9 @@ def printAdminUserCommands():
         "\n" + "[pavl pelaajan_id,uusi_liitto] - pelaajat aseta valeliitto" + \
         "\n" + "[par pelaajan_id,uudet_rahat] - pelaajat aseta rahat" + \
         "\n" + "[pat pelaajan_id,toisen_pelaajan_id] - pelaajat aseta tositieto pelaajan liitosta" + \
-        "\n" + "[ppt pelaajan_id,toisen_pelaajan_id] - pelaajat poista tositieto pelaajan liitosta"
+        "\n" + "[ppt pelaajan_id,toisen_pelaajan_id] - pelaajat poista tositieto pelaajan liitosta" + \
+        "\n" + "[pah pelaajan_id,haasteen_id] - pelaajat aseta haaste suoritetuksi" + \
+        "\n" + "[pph pelaajan_id,haasteen_id] - pelaajat poista haaste"
     return commands
 
 def printAdminMessageCommands():
@@ -235,13 +248,22 @@ def handleMessage(command, path):
             if command == "!": logout_user(); return "console.resetPath" + "\n" + "console.clear" + "\n" + "console.logout" + "\n" + printTitle()
 
             if current_user.role == "player":
+
                 if command == "p": return current_user.printPlayerList()
                 if command == "i": return current_user.getInfo()
                 if path == "" and command == "v": return "console.changePath viestit"
                 if path == "" and command == "t": return "console.changePath tehtävät"
                 if path == "" and command == "a": return "console.changePath agenttitoiminnot"
-                if not game.started:
+                if path == "" and command == "h" and len(current_user.challengesCompleted) > 0: return "console.changePath haaste"
+                if not game.started or game.finished:
                         return "Peli ei ole käynnissä"
+                if len(current_user.challengesCompleted) == 0 and re.match("[a-zA-Z0-9]{5,}", command):
+                    if current_user.tryClaimChallenge(command) == "1":
+                        game.firstChallenge += 1
+                        if game.topChallenge == 0: game.topChallenge = 1
+                        game.infoText = "Pelaajia, jotka avanneet salaisen haasteen: " + str(game.firstChallenge) + ". Suurin suoritettu haaste: " + str(game.topChallenge)
+                        return "Salainen haaste suoritettu! Mene Haastevalikkoon [h]!" + \
+                                "\n" + "Jos ratkaiset kaikki 10 haastetta, liittonne voittaa!"
                 if path == "viestit":
                     if command == "v": return current_user.messagesList()
                     if re.match("\d+", command): return current_user.messagesRead(command)
@@ -260,11 +282,31 @@ def handleMessage(command, path):
                         if re.match("game\.end", response):
                             lines = response.splitlines()
                             for line in lines:
-                                if line == "game.end": game.started = False
-                                elif re.match("game.end.text ", line): game.infoText = line.split("game.end.text ", 1)[1]
+                                if line == "game.end": game.finished = True
+                                elif re.match("game.info.text ", line): game.infoText = line.split("game.info.text ", 1)[1]
                                 else: response = line
                         return response
-
+                if path == "haaste":
+                    if command == "h": return current_user.listChallenges()
+                    if re.match("[a-zA-Z0-9]{5,}", command):
+                        response =  current_user.tryClaimChallenge(command)
+                        if re.match("^\d+$", response):
+                            response = int(response)
+                            if game.topChallenge < response:
+                                game.topChallenge = response
+                                game.infoText = "Pelaajia, jotka avanneet salaisen haasteen: " + str(game.firstChallenge) + ". Suurin suoritettu haaste: " + str(game.topChallenge)
+                            if response == 10:
+                                game.finished = True
+                                game.infoText = "  -- Voittaja on " + Alliance.getAlliance(current_user.alliance).name + "!  " + current_user.name + " (" + current_user.nation + ")" + " suoritti 10 haastetehtävää! --"
+                                return "Onneksi olkoon, voitit pelin!"
+                            else:
+                                responseFinal = "Haaste suoritettu!" + \
+                                "\n" + "Seuraava haaste:"
+                                c = Challenge.query.filter_by(id=response+1).first()
+                                if c == None: responseFinal += "\n" + "Seuraavaa haastetta ei löydy"
+                                else: responseFinal += "\n" + c.description
+                                return responseFinal
+                        else: return response
             if current_user.role == "admin":
                 if path == "" and command == "a": return "console.changePath admin"
                 if path == "admin":
@@ -279,8 +321,6 @@ def handleMessage(command, path):
                     if re.match("lavo ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setWinInstruction(commands[1])
                     if re.match("lavl ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setWinAlliance(commands[1])
                     if re.match("lpvl ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).removeWinAlliance(commands[1])
-                    if re.match("lah ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setChallengeDone(Challenge.getChallenge(commands[1]),User.getUser(commands[2]))
-                    if re.match("lph ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).removeChallengeDone(Challenge.getChallenge(commands[1]))
                     if command == "p": return printAdminUserCommands()
                     if command == "pl": return User.listUsersForAdmin()
                     if re.match("pu ", command): commands = command.split(" ", 1)[1].split(","); return User.createUser(commands[0], commands[1], commands[2], commands[3], commands[4])
@@ -295,6 +335,8 @@ def handleMessage(command, path):
                     if re.match("pat ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setKnownPlayerAlliance(User.getUser(commands[1]))
                     if re.match("ppt ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).removeKnownPlayerAlliance(User.getUser(commands[1]))
                     if re.match("puep ", command): return User.createNPC(command.split(" ", 1)[1])
+                    if re.match("pah ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setChallengeDone(Challenge.getChallenge(commands[1]))
+                    if re.match("pph ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).removeChallengeDone(Challenge.getChallenge(commands[1]))
                     if command == "v": return printAdminMessageCommands()
                     if command == "vl": return Message.listMessagesForAdmin()
                     if re.match("vu ", command): commands = command.split(" ", 1)[1].split(",", 1); return Message.createMessage(commands[0], commands[1])
@@ -324,14 +366,14 @@ def handleMessage(command, path):
                     if re.match("sas ", command): commands = command.split(" ", 1)[1].split(","); return Secret.getSecret(commands[0]).setSecret(commands[1])
                     if command == "h": return printAdminChallengeCommands()
                     if command == "hl": return Challenge.adminListChallenges()
-                    if re.match("hu ", command): commands = command.split(" ", 1)[1].split(","); return Challenge.createChallenge(commands[0], commands[1])
+                    if re.match("hu ", command): commands = command.split(" ", 1)[1].split(",", 1); return Challenge.createChallenge(commands[0], commands[1])
                     if re.match("hp ", command): return Challenge.getChallenge(command.split(" ")[1]).delete()
                     if re.match("hai ", command): commands = command.split(" ", 1)[1].split(","); return Challenge.getChallenge(commands[0]).adminSetId(commands[1])
                     if re.match("hako ", command): commands = command.split(" ", 1)[1].split(","); return Challenge.getChallenge(commands[0]).adminSetCode(commands[1])
                     if re.match("haku ", command): commands = command.split(" ", 1)[1].split(",", 1); return Challenge.getChallenge(commands[0]).adminSetDescription(commands[1])
                     if command == "peli": return printAdminGameCommands()
-                    if command == "peli aloita": return setGameStart()
-                    if command == "peli lopeta": return setGameEnd()
+                    if command == "peli aloita": return toggleGameStart()
+                    if command == "peli lopeta": return toggleGameFinished()
                     if command == "peli info": return setGameInfoText("")
                     if re.match("peli info ", command): return setGameInfoText(command.split("peli info ")[1])
                     if re.match("peli aloitus ", command): return setGameStartTime(command.split("peli aloitus ")[1])

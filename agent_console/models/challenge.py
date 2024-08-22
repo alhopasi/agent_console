@@ -1,6 +1,7 @@
 from agent_console import db
 from agent_console.utils import setEmptySpacesLeading
-from agent_console.models.alliance import alliance_challenge_table
+from agent_console.models.user import player_challenge_table
+import re
 
 
 class Challenge(db.Model):
@@ -8,7 +9,7 @@ class Challenge(db.Model):
     id = db.Column(db.Integer, primary_key=True) # works as tier, 1st is first -> 
     code = db.Column(db.String(256), nullable=False)
     description = db.Column(db.String(256), nullable=False)
-    allianceHasCompleted = db.relationship("Alliance", secondary=alliance_challenge_table, back_populates="challengesCompleted")
+    playerHasCompleted = db.relationship("User", secondary=player_challenge_table, back_populates="challengesCompleted")
 
     def __init__(self, code, description):
         self.code = code.strip()
@@ -43,16 +44,16 @@ class Challenge(db.Model):
 
         for c in challenges:
             if challengeCodeLength < len(c.code): challengeCodeLength = len(c.code)
-            if challengeDoneLength < len(c.allianceHasCompleted)*2: challengeDoneLength = len(c.allianceHasCompleted)*2
+            if challengeDoneLength < len(c.playerHasCompleted)*2: challengeDoneLength = len(c.playerHasCompleted)*2
 
         response = "id | " + setEmptySpacesLeading("koodi", challengeCodeLength) + " | " + setEmptySpacesLeading("tehneet", challengeDoneLength) + " | kuvaus"
 
         for c in challenges:
             response += "\n" + setEmptySpacesLeading(str(c.id), 2) + " | " + setEmptySpacesLeading(c.code, challengeCodeLength) + " | "
-            alliancesCompleted = ""
-            for a in c.allianceHasCompleted:
-                alliancesCompleted += setEmptySpacesLeading(str(a.id), 2)
-            response += setEmptySpacesLeading(alliancesCompleted, challengeDoneLength) + " | " + c.description
+            playersCompleted = ""
+            for u in c.playerHasCompleted:
+                playersCompleted += setEmptySpacesLeading(str(u.id), 2)
+            response += setEmptySpacesLeading(playersCompleted, challengeDoneLength) + " | " + c.description
         
         return response
     
@@ -67,6 +68,10 @@ class Challenge(db.Model):
     
     @staticmethod
     def createChallenge(code, description):
+        code = code.strip()
+        description = description.strip()
+        if not re.match("[a-zA-Z0-9]{5,}", code):
+            return "koodin pitää olla vähintään 5 kirjainta tai numeroa pitkä"
         db.session.add(Challenge(code, description))
         db.session.commit()
         return "Haaste luotu: " + code + " | " + description

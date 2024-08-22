@@ -5,15 +5,20 @@ from agent_console.models.alliance import Alliance
 from agent_console.models.message import Message
 from agent_console.models.task import Task
 from agent_console.models.secrets import Secret
-from agent_console.models.challenge import Challenge
 from agent_console.utils import setEmptySpacesLeading, setEmptySpacesTrailing
 import random, string, re
-from sqlalchemy.sql import text
 
 player_to_player_association = db.Table("playersTrueAllianceKnowledge",
     db.Column("sourcePlayer_id", db.Integer, db.ForeignKey("users.id")),
     db.Column("targetPlayer_id", db.Integer, db.ForeignKey("users.id"))
 )
+
+player_challenge_table = db.Table("playerChallengeTable",
+    db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
+    db.Column("challenge_id", db.Integer, db.ForeignKey("challenges.id")),
+)
+
+from agent_console.models.challenge import Challenge
 
 class User(db.Model, UserMixin):
     __tablename__ = "users"
@@ -28,6 +33,7 @@ class User(db.Model, UserMixin):
     fakeAlliance = db.Column(db.Integer, db.ForeignKey("alliances.id"), nullable=True)
     knownPlayers = db.relationship("User", secondary=player_to_player_association, back_populates="knownToPlayers", primaryjoin=id == player_to_player_association.c.targetPlayer_id, secondaryjoin=id == player_to_player_association.c.sourcePlayer_id)
     knownToPlayers = db.relationship("User", secondary=player_to_player_association, back_populates="knownPlayers", primaryjoin=id == player_to_player_association.c.sourcePlayer_id, secondaryjoin=id == player_to_player_association.c.targetPlayer_id)
+    challengesCompleted = db.relationship("Challenge", secondary=player_challenge_table, back_populates="playerHasCompleted")
 
 
     def __init__(self, name, password, nation="", alliance=None, fakeAlliance=None, role="player"):
@@ -125,20 +131,25 @@ class User(db.Model, UserMixin):
             playerInfo += "\n" + "liiton paljastetut salaisuudet:"
             for s in secrets:
                 playerInfo += "\n  " + s.secret
-
-        challenges = Alliance.getAlliance(self.alliance).challengesCompleted
         
-        stmt = text("SELECT * FROM allianceChallengeTable")
-        with db.engine.connect() as conn:
-            res = conn.execute(stmt)
-        values = [ e[2] for e in res ]
-
-        if len(challenges) > 0:
-            playerInfo += "\n" + "liiton suoritetut haastetehtävät:"
-            for i, c in enumerate(challenges):
-                playerInfo += "\n  " + str(c.id) + " - suorittanut: " + User.getUser(values[i]).nation
+        if len(self.challengesCompleted) > 0:
+            playerInfo += "\n" + "pelaajan suoritetut haasteet:"
+            for c in self.challengesCompleted:
+                playerInfo += "\n  " + str(c.id) + " / 10"
 
         return playerInfo
+    
+    def setChallengeDone(self, challenge):
+        self.challengesCompleted.append(challenge)
+        challenge.playerHasCompleted.append(self)
+        db.session.commit()
+
+        return "Haaste " + str(challenge.id) + " asetettu suoritetuksi"
+    
+    def removeChallengeDone(self, challenge):
+        self.challengesCompleted.remove(challenge)
+        db.session.commit()
+        return "Haaste " + str(challenge.id) + " poistettu pelaajalta"
     
     def getUnreadMessagesAmount(self):
         messages = Message.query.filter_by(user_id=self.id, read=False).all()
@@ -383,13 +394,34 @@ class User(db.Model, UserMixin):
         
         if winner:
             return "game.end" + \
-                "\n" + "game.end.text " + winText + \
+                "\n" + "game.info.text " + winText + \
                 "\n" + "Onneksi olkoon, voitit pelin!"
 
         return "Maksoit 5 $" + \
             "\n" + "Hyvä yritys, mutta väärin meni"
 
-        
+    def listChallenges(self):
+        response = setEmptySpacesLeading("#", 2) + " | " + setEmptySpacesLeading("tila", 10) + " | haaste"
+        i = 1
+        for c in self.challengesCompleted:
+            response += "\n" + setEmptySpacesLeading(str(c.id), 2) + " | SUORITETTU | " + c.description
+            i += 1
+        nextChallenge = Challenge.query.filter_by(id=i).first()
+        if nextChallenge != None:
+            response += "\n" + setEmptySpacesLeading(str(nextChallenge.id), 2) + " | " + setEmptySpacesLeading("", 10) + " | " + nextChallenge.description
+        return response
+    
+    def tryClaimChallenge(self, code):
+        i = len(self.challengesCompleted) + 1
+        c = Challenge.query.filter_by(id=i).first()
+        if c == None: return "Seuraavaa haastetta ei löydy"
+
+        if code.strip() == c.code:
+            self.challengesCompleted.append(c)
+            c.playerHasCompleted.append(self)
+            db.session.commit()
+            return str(c.id)
+        return "Koodia ei löydy"
     
     @staticmethod
     def listUsersForAdmin():
@@ -398,11 +430,14 @@ class User(db.Model, UserMixin):
         userColumnSizes[0] = 4
         userColumnSizes[1] = 8
         userColumnSizes[2] = 6
+        challengesWidth = 8
         for u in users:
             if u.role != "npc":
                 if userColumnSizes[0] < len(u.name): userColumnSizes[0] = len(u.name)
                 if userColumnSizes[1] < len(u.password): userColumnSizes[1] = len(u.password)
                 if userColumnSizes[2] < len(u.nation): userColumnSizes[2] = len(u.nation)
+            if u.role == "player":
+                if len(u.challengesCompleted)*2 > challengesWidth: challengesWidth = len(u.challengesCompleted)*2
         response = [""] * 4
         response[0] = " id" + \
             " | " + setEmptySpacesLeading("nimi", userColumnSizes[0]) + \
@@ -412,9 +447,13 @@ class User(db.Model, UserMixin):
             " | " + setEmptySpacesLeading("liitto", 6) + \
             " | " + setEmptySpacesLeading("valeliitto", 10) + \
             " | " + setEmptySpacesLeading("rooli", 6) + \
+            " | " + setEmptySpacesLeading("haasteet", challengesWidth) + \
             " | " + "tieto pelaajan liitosta"
         for u in users:
             if u.role == "player":
+                challengeList = ""
+                for c in u.challengesCompleted:
+                    challengeList += setEmptySpacesLeading(str(c.id), 2)
                 response[2] += "\n" + setEmptySpacesLeading(str(u.id), 3) + \
                             " | " + setEmptySpacesLeading(u.name, userColumnSizes[0]) + \
                             " | " + setEmptySpacesLeading(u.password, userColumnSizes[1]) + \
@@ -423,6 +462,8 @@ class User(db.Model, UserMixin):
                             " | " + setEmptySpacesLeading(str(u.alliance), 6) + \
                             " | " + setEmptySpacesLeading(str(u.fakeAlliance), 10) + \
                             " | " + setEmptySpacesLeading(str(u.role), 6) + \
+                            " | "
+                response[2] += setEmptySpacesLeading(challengeList, challengesWidth) + \
                             " |"
                 for p in u.knownPlayers:
                     response[2] += " " + str(p.id)
@@ -435,6 +476,7 @@ class User(db.Model, UserMixin):
                             " | " + setEmptySpacesLeading("", 6) + \
                             " | " + setEmptySpacesLeading("", 10) + \
                             " | " + setEmptySpacesLeading(str(u.role), 6) + \
+                            " | " + setEmptySpacesLeading("", challengesWidth) + \
                             " |"
             elif u.role == "npc":
                 response[3] += "\n" + setEmptySpacesLeading(str(u.id), 3) + \
@@ -445,6 +487,7 @@ class User(db.Model, UserMixin):
                             " | " + setEmptySpacesLeading("", 6) + \
                             " | " + setEmptySpacesLeading("", 10) + \
                             " | " + setEmptySpacesLeading(str(u.role), 6) + \
+                            " | " + setEmptySpacesLeading("", challengesWidth) + \
                             " |"
         return ''.join(response[i] for i in range(len(response)))
 
