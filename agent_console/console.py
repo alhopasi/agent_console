@@ -18,26 +18,72 @@ class GameState():
     firstChallenge = 0
     topChallenge = 0
 
+    def updateChallengeInfo(self, challengeNumber, user):
+        if self.topChallenge < challengeNumber:
+            self.topChallenge = challengeNumber
+            self.updateChallengeInfoText()
+        if challengeNumber == 1:
+            self.firstChallenge += 1
+            self.updateChallengeInfoText()
+            return "Salainen haaste suoritettu! Mene Haastevalikkoon [h]!" + \
+                    "\n" + "Jos ratkaiset kaikki 10 haastetta, liittonne voittaa!"
+        if challengeNumber == 10:
+            self.finished = True
+            self.infoText = "  -- Voittaja on " + Alliance.getAlliance(user.alliance).name + "!  " + user.name + " (" + user.nation + ")" + " suoritti 10 haastetehtävää! --"
+            return "Onneksi olkoon, voitit pelin!"
+
+        response = "Haaste suoritettu!" + \
+        "\n" + "Seuraava haaste:"
+        c = Challenge.query.filter_by(id=challengeNumber+1).first()
+        if c == None: response += "\n" + "Seuraavaa haastetta ei löydy"
+        else: response += "\n" + c.description
+        return response
+    
+    def updateChallengeInfoText(self):
+        if self.topChallenge > 0 and self.firstChallenge > 0:
+            self.infoText = "Pelaajia, jotka avanneet salaisen haasteen: " + str(self.firstChallenge) + ". Suurin suoritettu haaste: " + str(self.topChallenge)
+        else: self.infoText = "PELI KÄYNNISSÄ"
+
+    def getInfo(self):
+        if not self.started:
+            startTime = datetime.strptime(self.startTime, "%Y-%m-%d %H:%M:%S")
+            currentTime = datetime.strptime(getCurrentTime(), "%Y-%m-%d %H:%M:%S")
+            relativeStartTime = startTime - currentTime
+            if relativeStartTime > timedelta(0):
+                if relativeStartTime.days > 0:
+                    return "console.info   -- Pelin alkuun " + str(relativeStartTime.days) + " päivää --"
+                hours = str(relativeStartTime.seconds // 3600)
+                minutes = str(relativeStartTime.seconds // 60 % 60)
+                seconds = str(relativeStartTime.seconds % 60)
+                if len(hours) == 1: hours = "0" + hours
+                if len(minutes) == 1: minutes = "0" + minutes
+                if len(seconds) == 1: seconds = "0" + seconds
+                return "console.info   -- Pelin alkuun " + hours + ":" + minutes + ":" + seconds + " --"
+            else:
+                self.started = True
+        return "console.info " + getCurrentTime() + " | " + self.infoText
+    
+    def queryDBforChallengeInfo(self):
+        challenges = Challenge.query.all()
+        for c in challenges:
+            if len(c.playerHasCompleted) > 0:
+                if c.id == 1 or c.id > self.topChallenge:
+                    for u in c.playerHasCompleted:
+                        self.updateChallengeInfo(c.id, u)
+
+    def setFirstChallenge(self, challenge):
+        self.firstChallenge = int(challenge)
+        self.updateChallengeInfoText()
+        return "haastetehtävän aloittaneita asetettu: " + str(challenge)
+    
+    def setTopChallenge(self, challenge):
+        self.topChallenge = int(challenge)
+        self.updateChallengeInfoText()
+        return "suurin haaste asetettu: " + str(challenge)
+
 game = GameState()
 
-def getInfo():
-    if not game.started:
-        startTime = datetime.strptime(game.startTime, "%Y-%m-%d %H:%M:%S")
-        currentTime = datetime.strptime(getCurrentTime(), "%Y-%m-%d %H:%M:%S")
-        relativeStartTime = startTime - currentTime
-        if relativeStartTime > timedelta(0):
-            if relativeStartTime.days > 0:
-                return "console.info   -- Pelin alkuun " + str(relativeStartTime.days) + " päivää --"
-            hours = str(relativeStartTime.seconds // 3600)
-            minutes = str(relativeStartTime.seconds // 60 % 60)
-            seconds = str(relativeStartTime.seconds % 60)
-            if len(hours) == 1: hours = "0" + hours
-            if len(minutes) == 1: minutes = "0" + minutes
-            if len(seconds) == 1: seconds = "0" + seconds
-            return "console.info   -- Pelin alkuun " + hours + ":" + minutes + ":" + seconds + " --"
-        else:
-            game.started = True
-    return "console.info " + getCurrentTime() + " | " + game.infoText
+
 
 def parseMessage(msg):
     return re.match("^[a-zA-Z0-9äÄöÖåÅ\?\!,. :\-]*$", msg)
@@ -145,7 +191,9 @@ def printAdminGameCommands():
     commands = "[peli aloita] - käynnistä peli" +\
         "\n" + "[peli lopeta] - lopeta peli" + \
         "\n" + "[peli info infoteksti] - aseta infoteksti" + \
-        "\n" + "[peli aloitus YYYY-MM-DD HH-MM-SS] - aseta pelin aloitusaika"
+        "\n" + "[peli aloitus YYYY-MM-DD HH-MM-SS] - aseta pelin aloitusaika" + \
+        "\n" + "[peli suurin,#] - aseta suurin suoritettu haaste" + \
+        "\n" + "[peli haasteet,#] - aseta haastehtävän aloittaneiden #"
     return commands
 
 def printAdminUserCommands():
@@ -219,6 +267,7 @@ def tryLogin(password):
     user = User.query.filter_by(password=password).first()
     if user:
         login_user(user)
+        game.queryDBforChallengeInfo()
         if current_user.role == "player":
             unreadMessageAmount = current_user.getUnreadMessagesAmount()
             if unreadMessageAmount == 1:
@@ -235,7 +284,7 @@ def tryLogin(password):
 
 def handleMessage(command, path):
         if command == "get_info":
-            return getInfo()
+            return game.getInfo()
 
     #try:
         if not parseMessage(command): return "No cheating!"
@@ -259,11 +308,7 @@ def handleMessage(command, path):
                         return "Peli ei ole käynnissä"
                 if len(current_user.challengesCompleted) == 0 and re.match("[a-zA-Z0-9]{5,}", command):
                     if current_user.tryClaimChallenge(command) == "1":
-                        game.firstChallenge += 1
-                        if game.topChallenge == 0: game.topChallenge = 1
-                        game.infoText = "Pelaajia, jotka avanneet salaisen haasteen: " + str(game.firstChallenge) + ". Suurin suoritettu haaste: " + str(game.topChallenge)
-                        return "Salainen haaste suoritettu! Mene Haastevalikkoon [h]!" + \
-                                "\n" + "Jos ratkaiset kaikki 10 haastetta, liittonne voittaa!"
+                        return game.updateChallengeInfo(1, current_user)
                 if path == "viestit":
                     if command == "v": return current_user.messagesList()
                     if re.match("\d+", command): return current_user.messagesRead(command)
@@ -291,21 +336,7 @@ def handleMessage(command, path):
                     if re.match("[a-zA-Z0-9]{5,}", command):
                         response =  current_user.tryClaimChallenge(command)
                         if re.match("^\d+$", response):
-                            response = int(response)
-                            if game.topChallenge < response:
-                                game.topChallenge = response
-                                game.infoText = "Pelaajia, jotka avanneet salaisen haasteen: " + str(game.firstChallenge) + ". Suurin suoritettu haaste: " + str(game.topChallenge)
-                            if response == 10:
-                                game.finished = True
-                                game.infoText = "  -- Voittaja on " + Alliance.getAlliance(current_user.alliance).name + "!  " + current_user.name + " (" + current_user.nation + ")" + " suoritti 10 haastetehtävää! --"
-                                return "Onneksi olkoon, voitit pelin!"
-                            else:
-                                responseFinal = "Haaste suoritettu!" + \
-                                "\n" + "Seuraava haaste:"
-                                c = Challenge.query.filter_by(id=response+1).first()
-                                if c == None: responseFinal += "\n" + "Seuraavaa haastetta ei löydy"
-                                else: responseFinal += "\n" + c.description
-                                return responseFinal
+                            return game.updateChallengeInfo(int(response), current_user)
                         else: return response
             if current_user.role == "admin":
                 if path == "" and command == "a": return "console.changePath admin"
@@ -377,8 +408,11 @@ def handleMessage(command, path):
                     if command == "peli info": return setGameInfoText("")
                     if re.match("peli info ", command): return setGameInfoText(command.split("peli info ")[1])
                     if re.match("peli aloitus ", command): return setGameStartTime(command.split("peli aloitus ")[1])
+                    if re.match("peli suurin,", command): return game.setTopChallenge(command.split("peli suurin,")[1])
+                    if re.match("peli haasteet,", command): return game.setFirstChallenge(command.split("peli haasteet,")[1])
 
-
+        "\n" + "[peli suurin,#] - aseta suurin suoritettu haaste" + \
+        "\n" + "[peli haasteet,#] - aseta haastehtävän aloittaneiden #"
 
 
         if not current_user.is_authenticated:
