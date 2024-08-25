@@ -10,7 +10,8 @@ Deployment:
 ```flask --app agent_console run -h 0.0.0.0```
 
 Next steps:
-- create secret challenges - those that require modification in app code
 - continue developing the application with required features
+
+The code would need some big refactoring. The game should handle most things, not the user class. But no time to refactor it. 
 
 note to self: gunicorn don't work with flask-socketio - look for alternates or stay with flask development server ?

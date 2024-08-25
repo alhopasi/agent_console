@@ -2,13 +2,13 @@ from agent_console import db
 from agent_console.utils import setEmptySpacesLeading
 
 alliance_secret_association = db.Table("alliances_secrets",
-    db.Column("alliance_id", db.Integer, db.ForeignKey("alliances.id")),
-    db.Column("secret_id", db.Integer, db.ForeignKey("secrets.id"))
+    db.Column("alliance_id", db.Integer, db.ForeignKey("alliances.id"), primary_key=True),
+    db.Column("secret_id", db.Integer, db.ForeignKey("secrets.id"), primary_key=True)
 )
 
 alliance_win_table = db.Table("allianceWinTable",
-    db.Column("sourceAlliance_id", db.Integer, db.ForeignKey("alliances.id")),
-    db.Column("targetAlliance_id", db.Integer, db.ForeignKey("alliances.id"))
+    db.Column("sourceAlliance_id", db.Integer, db.ForeignKey("alliances.id"), primary_key=True),
+    db.Column("targetAlliance_id", db.Integer, db.ForeignKey("alliances.id"), primary_key=True)
 )
 
 class Alliance(db.Model):

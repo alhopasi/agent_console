@@ -9,13 +9,13 @@ from agent_console.utils import setEmptySpacesLeading, setEmptySpacesTrailing
 import random, string, re
 
 player_to_player_association = db.Table("playersTrueAllianceKnowledge",
-    db.Column("sourcePlayer_id", db.Integer, db.ForeignKey("users.id")),
-    db.Column("targetPlayer_id", db.Integer, db.ForeignKey("users.id"))
+    db.Column("sourcePlayer_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
+    db.Column("targetPlayer_id", db.Integer, db.ForeignKey("users.id"), primary_key=True)
 )
 
 player_challenge_table = db.Table("playerChallengeTable",
-    db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
-    db.Column("challenge_id", db.Integer, db.ForeignKey("challenges.id")),
+    db.Column("user_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
+    db.Column("challenge_id", db.Integer, db.ForeignKey("challenges.id"), primary_key=True),
 )
 
 from agent_console.models.challenge import Challenge
@@ -221,7 +221,7 @@ class User(db.Model, UserMixin):
         db.session.commit()
         return "Maksoit 3 $" + \
             "\n" + "Pelaaja " + player.nation + " kuuluu liitton " + Alliance.getAlliance(player.alliance).name
-    
+
     def sendMessage(self, player, messageText):
         if player == self:
             return "Et voi lähettää itsellesi viestiä"
@@ -233,6 +233,14 @@ class User(db.Model, UserMixin):
         db.session.commit()
         return "Maksoit 1 $" + \
             "\n" + "Lähetit viestin valtiolle " + player.nation + ": " + messageText.strip()
+
+    def adminSendMessageToAll(self, messageText):
+        player = User.query.filter_by(role="player").all()
+        for p in player:
+            message = Message(p.id, messageText.strip())
+            db.session.add(message)
+        db.session.commit()
+        return "Viesti lähetetty kaikille: " + messageText.strip()
 
     @staticmethod
     def getUser(user_id):

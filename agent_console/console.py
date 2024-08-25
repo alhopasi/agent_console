@@ -8,6 +8,7 @@ from agent_console.models.secrets import Secret
 from agent_console.models.challenge import Challenge
 from agent_console.utils import setEmptySpacesLeading, setEmptySpacesTrailing
 from datetime import datetime, timezone, timedelta
+from agent_console import db
 
 class GameState():
     #startTime = "2024-09-15 14:45:00"
@@ -64,6 +65,8 @@ class GameState():
         return "console.info " + getCurrentTime() + " | " + self.infoText
     
     def queryDBforChallengeInfo(self):
+        self.topChallenge = 0
+        self.firstChallenge = 0
         challenges = Challenge.query.all()
         for c in challenges:
             if len(c.playerHasCompleted) > 0:
@@ -222,7 +225,8 @@ def printAdminMessageCommands():
         "\n" + "[vap viestin_id,uusi_pelaajan_id] - viestit aseta pelaaja" + \
         "\n" + "[vav viestin_id,uusi_viesti] - viestit aseta viesti" + \
         "\n" + "[vaa viestin_id,uusi_aikaleima] - viestit aseta aikaleima" + \
-        "\n" + "[val viestin_id] - viestit aseta luetuksi/ei-luetuksi"
+        "\n" + "[val viestin_id] - viestit aseta luetuksi/ei-luetuksi" + \
+        "\n" + "[vu kaikki,viesti] - viestit uusi kaikille"
     return commands
 
 def printAdminTaskCommands():
@@ -262,6 +266,31 @@ def printWinInstructions():
         "\n\n" + Alliance.getAlliance(current_user.alliance).winInstruction + \
         "\n\n" + "komento: voita # # # ... (esim: voita 2 6 12)"
 
+def secretChallengeMessage(player, message):
+    if player.currency < 1:
+        return "Sinulla ei ole 1 $"
+    challenges = Challenge.query.all()
+    code = ""
+    for c in challenges:
+        if "bond" in c.description.lower():
+            if len(player.challengesCompleted) == c.id - 1:
+                code = c.code
+    if code == "": return "007 ei vastaa - viestiä ei lähetetty"
+    messages = player.getMessages()
+    for m in messages:
+        if "Tässä Bond" in m.message:
+            return "007 ei vastaa - viestiä ei lähetetty"
+    messageCorrect = False
+    messageText = "Hei. Tässä Bond. Kiitos viestistä. Koodi on '" + code + "'"
+    if message.strip() == "My name is Bond, James Bond":
+        messageCorrect = True
+        messageText="Hei. Tässä Bond. Kirjoitit kaiken oikein, joten saat palkinnoksi 2 $. Koodi on '" + code + "'"
+    returnMessage = Message(player.id, messageText)
+    player.currency += 1 if messageCorrect else -1
+    db.session.add(returnMessage)
+    db.session.commit()
+    return "Maksoit 1 $" + \
+        "\n" + "Lähetit viestin Britannian Tiedustelupalvelun mahtavimmalle agentille: " + message.strip()
 
 def tryLogin(password):
     user = User.query.filter_by(password=password).first()
@@ -318,7 +347,10 @@ def handleMessage(command, path):
                 if path == "agenttitoiminnot":
                     if re.match("s ", command): commands = command.split(" "); return current_user.transferCurrency(commands[1], commands[2])
                     if re.match("l ", command): commands = command.split(" "); return current_user.revealAlliance(User.getPlayerList()[int(commands[1])])
-                    if re.match("k ", command): commands = command.split(" ", 2); return current_user.sendMessage(User.getPlayerList()[int(commands[1])], commands[2])
+                    if re.match("k ", command):
+                        commands = command.split(" ", 2)
+                        if commands[1] == "007": return secretChallengeMessage(current_user, commands[2])
+                        else: return current_user.sendMessage(User.getPlayerList()[int(commands[1])], commands[2])
                     if command == "salaisuus": return current_user.revealSecret()
                     if command == "voita": return printWinInstructions()
                     if re.match("voita ", command):
@@ -370,6 +402,7 @@ def handleMessage(command, path):
                     if re.match("pph ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).removeChallengeDone(Challenge.getChallenge(commands[1]))
                     if command == "v": return printAdminMessageCommands()
                     if command == "vl": return Message.listMessagesForAdmin()
+                    if re.match("vu kaikki,", command): message = command.split("vu kaikki,")[1]; return current_user.adminSendMessageToAll(message)
                     if re.match("vu ", command): commands = command.split(" ", 1)[1].split(",", 1); return Message.createMessage(commands[0], commands[1])
                     if re.match("vp ", command): return Message.getMessage(command.split(" ", 1)[1]).delete()
                     if re.match("vai ", command): commands = command.split(" ", 1)[1].split(","); return Message.getMessage(commands[0]).setId(commands[1])

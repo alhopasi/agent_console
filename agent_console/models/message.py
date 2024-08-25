@@ -27,7 +27,6 @@ class Message(db.Model):
         db.session.commit()
         response += ", uusi pelaajan id: " + str(self.user_id)
         return response
-
     
     def setMessage(self, message):
         response = "Viestin vanha viesti: " + self.message
@@ -65,7 +64,6 @@ class Message(db.Model):
         db.session.commit()
         return "Viesti luotu: " + playerId + " | " + message
 
-    
     def delete(self):
         Message.query.filter_by(id=self.id).delete()
         db.session().commit()
