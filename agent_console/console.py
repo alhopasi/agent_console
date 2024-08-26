@@ -125,16 +125,16 @@ def printCommands(path):
                 commands += "\n" + "[t] - listaa tehtävät" + \
                             "\n" + "[koodi] - suorita tehtävä koodilla"
             if path == "agenttitoiminnot":
-                commands += "\n" + "Agenttitoiminnot maksavat $" + \
-                            "\n" + "Varoitus! Toimintoja ei voi perua!" + \
+                commands += "\n" + setEmptySpacesLeading("$", 2) + " | " + setEmptySpacesTrailing("komento", 13) + " | kuvaus" + \
+                            "\n" + setEmptySpacesLeading("0", 2)     + " | " + setEmptySpacesTrailing("[s # $]", 13) + " | siirrä $ rahaa valtiolle #" + \
+                            "\n" + setEmptySpacesLeading("1", 2)     + " | " + setEmptySpacesTrailing("[k # viesti]", 13) + " | kirjoita viesti valtiolle #" + \
+                            "\n" + setEmptySpacesLeading("3", 2)     + " | " + setEmptySpacesTrailing("[l #]", 13) + " | paljasta valtion # todellinen liitto" + \
+                            "\n" + setEmptySpacesLeading("6", 2)     + " | " + setEmptySpacesTrailing("[salaisuus]", 13) + " | tiimillesi paljastetaan salaisuus" + \
+                            "\n" + setEmptySpacesLeading("0", 2)     + " | " + setEmptySpacesTrailing("[voita]", 13) + " | ohjeet voittamiseen" + \
+                            "\n" + setEmptySpacesLeading("5", 2)     + " | " + setEmptySpacesTrailing("[voita # ...]", 13) + " | yritä voittoa liitollesi" + \
                             "\n" + \
-                            "\n" + setEmptySpacesLeading("$", 2) + " | " + setEmptySpacesTrailing("komento", 12) + " | kuvaus" + \
-                            "\n" + setEmptySpacesLeading("0", 2)     + " | " + setEmptySpacesTrailing("[s # $]", 12) + " | siirrä $ rahaa valtiolle #" + \
-                            "\n" + setEmptySpacesLeading("1", 2)     + " | " + setEmptySpacesTrailing("[k # viesti]", 12) + " | kirjoita viesti valtiolle #" + \
-                            "\n" + setEmptySpacesLeading("3", 2)     + " | " + setEmptySpacesTrailing("[l #]", 12) + " | paljasta valtion # todellinen liitto" + \
-                            "\n" + setEmptySpacesLeading("6", 2)     + " | " + setEmptySpacesTrailing("[salaisuus]", 12) + " | tiimillesi paljastetaan salaisuus" + \
-                            "\n" + setEmptySpacesLeading("0", 2)     + " | " + setEmptySpacesTrailing("[voita]", 12) + " | ohjeet voittamiseen" + \
-                            "\n" + setEmptySpacesLeading("5", 2)     + " | " + setEmptySpacesTrailing("[voita # ...]", 12) + " | yritä voittoa liitollesi"
+                            "\n" + "Agenttitoiminnot maksavat $" + \
+                            "\n" + "Varoitus! Toimintoja ei voi perua!"
             if path == "haaste":
                 commands += "\n" + "Voita 10 haastetta ja voita peli liitollesi!" + \
                             "\n" + "Jokaisessa haasteessa pitää saada [koodi]" + \
@@ -264,7 +264,7 @@ def printWinInstructions():
     return current_user.printPlayerList() + \
         "\n\n" + current_user.printUserList() + \
         "\n\n" + Alliance.getAlliance(current_user.alliance).winInstruction + \
-        "\n\n" + "komento: voita # # # ... (esim: voita 2 6 12)"
+        "\n\n" + "komento: voita # # # ... (esim: voita 2 6 12 ... jne)"
 
 def secretChallengeMessage(player, message):
     if player.currency < 1:
@@ -312,10 +312,9 @@ def tryLogin(password):
 
 
 def handleMessage(command, path):
+    try:
         if command == "get_info":
             return game.getInfo()
-
-    #try:
         if not parseMessage(command): return "No cheating!"
 
         if command == "": return "[?] - komennot"
@@ -452,6 +451,6 @@ def handleMessage(command, path):
             return tryLogin(command)
 
         return "Tuntematon komento - [?] näyttää komennot"
-    #except Exception as e:
-    #    print(e)
-    #    return "Unknown error happened"
+    except Exception as e:
+        print("VIRHE: " + current_user.name + ":" + path + " > " + command + " | " + str(e))
+        return "Virhe - kokeile uudestaan"
