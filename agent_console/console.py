@@ -115,28 +115,30 @@ def printCommands(path):
         commands += "\n" + "[.] - päävalikkoon"
         if current_user.role == "player":
             commands += "\n" + "[i] - pelaajan info" + \
-                        "\n" + "[p] - muut pelaajat"
+                        "\n" + "[p] - pelaajat" + \
+                        "\n" + "[v] - valtiot"
         commands += "\n" + "[!] - kirjaudu ulos"
 
         if current_user.role == "player":
             commands += "\n"
             if path == "":
-                commands += "\n" + "[v] - viestit" + \
+                commands += "\n" + "[s] - sähkeet" + \
                             "\n" + "[t] - tehtävät" + \
                             "\n" + "[a] - agenttitoiminnot"
                 if len(current_user.challengesCompleted) > 0:
                     commands += "\n" + "[h] - haastetehtävä"
-            if path == "viestit":
-                commands += "\n" + "[v] - listaa viestit" + \
-                            "\n" + "[#] - lue viesti #"
+            if path == "sähkeet":
+                commands += "\n" + "[s] - listaa sähkeet" + \
+                            "\n" + "[#] - lue sähke #"
             if path == "tehtävät":
                 commands += "\n" + "[t] - listaa tehtävät" + \
                             "\n" + "[koodi] - suorita tehtävä koodilla"
             if path == "agenttitoiminnot":
                 commands += "\n" + setEmptySpacesLeading("$", 2) + " | " + setEmptySpacesTrailing("komento", 13) + " | kuvaus" + \
                             "\n" + setEmptySpacesLeading("0", 2)     + " | " + setEmptySpacesTrailing("[s # $]", 13) + " | siirrä $ rahaa valtiolle #" + \
-                            "\n" + setEmptySpacesLeading("1", 2)     + " | " + setEmptySpacesTrailing("[k # viesti]", 13) + " | kirjoita viesti valtiolle #" + \
-                            "\n" + setEmptySpacesLeading("3", 2)     + " | " + setEmptySpacesTrailing("[l #]", 13) + " | paljasta valtion # todellinen liitto" + \
+                            "\n" + setEmptySpacesLeading("1", 2)     + " | " + setEmptySpacesTrailing("[k # viesti]", 13) + " | kirjoita sähke valtiolle #" + \
+                            "\n" + setEmptySpacesLeading("5", 2)     + " | " + setEmptySpacesTrailing("[h #]", 13) + " | paljasta henkilön # valtio" + \
+                            "\n" + setEmptySpacesLeading("2", 2)     + " | " + setEmptySpacesTrailing("[l #]", 13) + " | paljasta valtion # todellinen liitto" + \
                             "\n" + setEmptySpacesLeading("6", 2)     + " | " + setEmptySpacesTrailing("[salaisuus]", 13) + " | tiimillesi paljastetaan salaisuus" + \
                             "\n" + setEmptySpacesLeading("0", 2)     + " | " + setEmptySpacesTrailing("[voita]", 13) + " | ohjeet voittamiseen" + \
                             "\n" + setEmptySpacesLeading("5", 2)     + " | " + setEmptySpacesTrailing("[voita # ...]", 13) + " | yritä voittoa liitollesi, ks. ohjeet!" + \
@@ -220,8 +222,10 @@ def printAdminUserCommands():
         "\n" + "[pal pelaajan_id,uusi_liitto] - pelaajat aseta liitto" + \
         "\n" + "[pavl pelaajan_id,uusi_liitto] - pelaajat aseta valeliitto" + \
         "\n" + "[par pelaajan_id,uudet_rahat] - pelaajat aseta rahat" + \
-        "\n" + "[pat pelaajan_id,toisen_pelaajan_id] - pelaajat aseta tositieto pelaajan liitosta" + \
-        "\n" + "[ppt pelaajan_id,toisen_pelaajan_id] - pelaajat poista tositieto pelaajan liitosta" + \
+        "\n" + "[paht pelaajan_id,toisen_pelaajan_id] - pelaajat aseta tositieto henkilön valtiosta" + \
+        "\n" + "[ppht pelaajan_id,toisen_pelaajan_id] - pelaajat poista tositieto henkilön valtiosta" + \
+        "\n" + "[palt pelaajan_id,toisen_pelaajan_id] - pelaajat aseta tositieto pelaajan liitosta" + \
+        "\n" + "[pplt pelaajan_id,toisen_pelaajan_id] - pelaajat poista tositieto pelaajan liitosta" + \
         "\n" + "[pah pelaajan_id,haasteen_id] - pelaajat aseta haaste suoritetuksi" + \
         "\n" + "[pph pelaajan_id,haasteen_id] - pelaajat poista haaste"
     return commands
@@ -284,11 +288,11 @@ def secretChallengeMessage(player, message):
         if "bond" in c.description.lower():
             if len(player.challengesCompleted) == c.id - 1:
                 code = c.code
-    if code == "": return "007 ei vastaa - viestiä ei lähetetty"
+    if code == "": return "007 ei vastaa - sähkettä ei lähetetty"
     messages = player.getMessages()
     for m in messages:
         if "Tässä Bond" in m.message:
-            return "007 ei vastaa - viestiä ei lähetetty"
+            return "007 ei vastaa - sähkettä ei lähetetty"
     messageCorrect = False
     messageText = "Hei. Tässä Bond. Kiitos viestistä. Koodi on '" + code + "'"
     if message.strip() == "My name is Bond, James Bond":
@@ -299,7 +303,7 @@ def secretChallengeMessage(player, message):
     db.session.add(returnMessage)
     db.session.commit()
     return "Maksoit 1 $" + \
-        "\n" + "Lähetit viestin Britannian Tiedustelupalvelun mahtavimmalle agentille: " + message.strip()
+        "\n" + "Lähetit sähkeen Britannian Tiedustelupalvelun mahtavimmalle agentille: " + message.strip()
 
 def tryLogin(password):
     user = User.query.filter_by(password=password).first()
@@ -309,9 +313,9 @@ def tryLogin(password):
         if current_user.role == "player":
             unreadMessageAmount = current_user.getUnreadMessagesAmount()
             if unreadMessageAmount == 1:
-                unreadMessageAmount = "\n" + "Sinulla on 1 lukematon viesti"
+                unreadMessageAmount = "\n" + "Sinulla on 1 lukematon sähke"
             elif unreadMessageAmount > 1:
-                unreadMessageAmount = "\n" + "Sinulla on " + str(unreadMessageAmount) + " lukematonta viestiä"
+                unreadMessageAmount = "\n" + "Sinulla on " + str(unreadMessageAmount) + " lukematonta sähkettä"
             else: unreadMessageAmount = ""
             return "Kirjautuminen onnistui. Tervetuloa " + current_user.nation + unreadMessageAmount + \
                 "\n" + "console.changeUser " + current_user.nation
@@ -334,9 +338,10 @@ def handleMessage(command, path):
             if command == "!": logout_user(); return "console.resetPath" + "\n" + "console.clear" + "\n" + "console.logout" + "\n" + printTitle()
 
             if current_user.role == "player":
-                if command == "p": return current_user.printPlayerList()
+                if command == "v": return current_user.printPlayerList()
+                if command == "p": return current_user.printUserList()
                 if command == "i": return current_user.getInfo()
-                if path == "" and command == "v": return "console.changePath viestit"
+                if path == "" and command == "s": return "console.changePath sähkeet"
                 if path == "" and command == "t": return "console.changePath tehtävät"
                 if path == "" and command == "a": return "console.changePath agenttitoiminnot"
                 if path == "" and command == "h" and len(current_user.challengesCompleted) > 0: return "console.changePath haaste"
@@ -345,7 +350,7 @@ def handleMessage(command, path):
                 if len(current_user.challengesCompleted) == 0 and re.match("[a-zA-Z0-9]{5,}", command):
                     if current_user.tryClaimChallenge(command) == "1":
                         return game.updateChallengeInfo(1, current_user)
-                if path == "viestit":
+                if path == "sähkeet":
                     if command == "v": return current_user.messagesList()
                     if re.match("\d+", command): return current_user.messagesRead(command)
                 if path == "tehtävät":
@@ -353,6 +358,7 @@ def handleMessage(command, path):
                     if command: return current_user.tryClaimTask(command)
                 if path == "agenttitoiminnot":
                     if re.match("s ", command): commands = command.split(" "); return current_user.transferCurrency(commands[1], commands[2])
+                    if re.match("h ", command): commands = command.split(" "); return current_user.revealUser(current_user.getUserList()[int(commands[1])])
                     if re.match("l ", command): commands = command.split(" "); return current_user.revealAlliance(User.getPlayerList()[int(commands[1])])
                     if re.match("k ", command):
                         commands = command.split(" ", 2)
@@ -402,8 +408,10 @@ def handleMessage(command, path):
                     if re.match("pal ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setAlliance(commands[1])
                     if re.match("pavl ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setFakeAlliance(commands[1])
                     if re.match("par ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setCurrency(commands[1])
-                    if re.match("pat ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setKnownPlayerAlliance(User.getUser(commands[1]))
-                    if re.match("ppt ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).removeKnownPlayerAlliance(User.getUser(commands[1]))
+                    if re.match("paht ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setKnownUser(User.getUser(commands[1]))
+                    if re.match("ppht ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).removeKnownUser(User.getUser(commands[1]))
+                    if re.match("palt ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setKnownPlayerAlliance(User.getUser(commands[1]))
+                    if re.match("pplt ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).removeKnownPlayerAlliance(User.getUser(commands[1]))
                     if re.match("puep ", command): return User.createNPC(command.split(" ", 1)[1])
                     if re.match("pah ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).setChallengeDone(Challenge.getChallenge(commands[1]))
                     if re.match("pph ", command): commands = command.split(" ", 1)[1].split(","); return User.getUser(commands[0]).removeChallengeDone(Challenge.getChallenge(commands[1]))
