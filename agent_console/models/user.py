@@ -417,6 +417,9 @@ class User(db.Model, UserMixin):
         nextChallenge = Challenge.query.filter_by(id=i).first()
         if nextChallenge != None:
             response += "\n" + setEmptySpacesLeading(str(nextChallenge.id), 2) + " | " + setEmptySpacesLeading("", 10) + " | " + nextChallenge.description
+            if nextChallenge.id == 10 and self.currency >= 30:
+                response += "\n" + \
+                    "\n" + "koodi on: " + nextChallenge.code
         return response
     
     def tryClaimChallenge(self, code):

@@ -70,7 +70,7 @@ class Challenge(db.Model):
     def createChallenge(code, description):
         code = code.strip()
         description = description.strip()
-        if not re.match("[a-zA-Z0-9]{5,}", code):
+        if not re.match("[a-zA-Z0-9äÄöÖ]{5,}", code):
             return "koodin pitää olla vähintään 5 kirjainta tai numeroa pitkä"
         db.session.add(Challenge(code, description))
         db.session.commit()
