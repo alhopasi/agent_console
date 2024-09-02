@@ -1,9 +1,13 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+import os
 
 app = Flask(__name__)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///agentconsole.db"
+if os.environ.get("RENDER"):
+    app.config["SQLALCHEMY_DATABASE_URI"]= os.environ.get("DATABASE_URL")
+else:
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///agentconsole.db"
 
 db = SQLAlchemy(app)
 
@@ -32,10 +36,8 @@ if 'sqlite' in app.config['SQLALCHEMY_DATABASE_URI']:
         from sqlalchemy import event
         event.listen(db.engine, 'connect', _fk_pragma_on_connect)
         db.create_all()
+else:
+    with app.app_context():
+        db.create_all()
 
-#try:
-#    with app.app_context():
-#        db.create_all()
-#except Exception as e:
-#    print(e)
-#    pass
+
