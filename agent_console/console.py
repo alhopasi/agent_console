@@ -394,7 +394,7 @@ def handleMessage(command, path):
                     if re.match("lan ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setName(commands[1])
                     if re.match("las ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setSecret(Secret.getSecret(commands[1]))
                     if re.match("lps ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).removeSecret(Secret.getSecret(commands[1]))
-                    if re.match("lavo ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setWinInstruction(commands[1])
+                    if re.match("lavo ", command): commands = command.split(" ", 1)[1].split(",",1); return Alliance.getAlliance(commands[0]).setWinInstruction(commands[1])
                     if re.match("lavl ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).setWinAlliance(commands[1])
                     if re.match("lpvl ", command): commands = command.split(" ", 1)[1].split(","); return Alliance.getAlliance(commands[0]).removeWinAlliance(commands[1])
                     if command == "p": return printAdminUserCommands()
