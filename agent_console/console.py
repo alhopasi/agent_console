@@ -329,6 +329,8 @@ def handleMessage(command, path):
         if command == "get_info":
             return game.getInfo()
         if not parseMessage(command): return "No cheating!"
+        if not current_user.is_authenticated and path != "":
+            return "console.resetPath" + "\n" + "console.clear" + "\n" + "console.logout" + "\n" + printTitle() + "\n\n" + "Sessio katkennut, kirjaudu uudelleen."
 
         if command == "": return "[?] - komennot"
         if command == ",": return "console.clear" + "\n" + printTitle()

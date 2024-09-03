@@ -385,6 +385,9 @@ class User(db.Model, UserMixin):
             if len(a.name) > fakeAllianceNameLength: fakeAllianceNameLength = len(a.name)
 
         players = User.getPlayerList()
+        nationLength = 7
+        for p in players:
+            if len(p.nation) + 1 > nationLength: nationLength = len(p.nation) + 1
         
         rows = 5
         if len(players) < rows:
@@ -396,29 +399,35 @@ class User(db.Model, UserMixin):
 
         if len(self.knownPlayers) == 0:
             for i, u in enumerate(players):
+                if i >= rows:
+                    if i % rows == 0: header += "| "
+                    nations[i % rows] += "| "
                 if i % rows == 0:
-                    header += setEmptySpacesLeading("#", 3) + "  | " + setEmptySpacesTrailing(fakeAllianceText, fakeAllianceNameLength) + " | " + setEmptySpacesTrailing("Valtio", 25)
-                nations[i % rows] += setEmptySpacesLeading("[" + str(i), 3) + "] | " + setEmptySpacesTrailing(Alliance.getAlliance(u.fakeAlliance).name, fakeAllianceNameLength) + " | " + setEmptySpacesTrailing(u.nation, 25)
+                    header += setEmptySpacesLeading("#", 3) + "  " + setEmptySpacesTrailing(fakeAllianceText, fakeAllianceNameLength) + " " + setEmptySpacesTrailing("valtio", nationLength)
+                nations[i % rows] += setEmptySpacesLeading("[" + str(i), 3) + "] " + setEmptySpacesTrailing(Alliance.getAlliance(u.fakeAlliance).name, fakeAllianceNameLength) + " " + setEmptySpacesTrailing(u.nation, nationLength)
         else:
-            allianceText = "Liitto"
+            allianceText = "liitto"
             allianceNameLength = len(allianceText) if len(allianceText) > fakeAllianceNameLength else fakeAllianceNameLength
-            fakeAllianceText = "Valeliitto"
+            fakeAllianceText = "valeliitto"
             fakeAllianceNameLength = len(fakeAllianceText) if len(fakeAllianceText) > fakeAllianceNameLength else fakeAllianceNameLength
             for i, u in enumerate(players):
+                if i >= rows:
+                    if i % rows == 0: header += "| "
+                    nations[i % rows] += "| "
                 if i % rows == 0:
-                    header += setEmptySpacesLeading("#", 3) + "  | " + setEmptySpacesTrailing(fakeAllianceText, fakeAllianceNameLength) + " | " + setEmptySpacesTrailing(allianceText, allianceNameLength) + " | " + setEmptySpacesTrailing("Valtio", 25)
-                nations[i % rows] += setEmptySpacesLeading("[" + str(i), 3) + "] | " + setEmptySpacesTrailing(Alliance.getAlliance(u.fakeAlliance).name, fakeAllianceNameLength) + " | "
+                    header += setEmptySpacesLeading("#", 3) + "  " + setEmptySpacesTrailing(fakeAllianceText, fakeAllianceNameLength) + " " + setEmptySpacesTrailing(allianceText, allianceNameLength) + " " + setEmptySpacesTrailing("valtio", nationLength)
+                nations[i % rows] += setEmptySpacesLeading("[" + str(i), 3) + "] " + setEmptySpacesTrailing(Alliance.getAlliance(u.fakeAlliance).name, fakeAllianceNameLength) + " "
                 if u in self.knownPlayers:
                     nations[i % rows] += setEmptySpacesTrailing(Alliance.getAlliance(u.alliance).name, allianceNameLength)
                 else:
                     nations[i % rows] += setEmptySpacesTrailing("", allianceNameLength) 
-                nations[i % rows] += " | " + setEmptySpacesTrailing(u.nation, 25)
+                nations[i % rows] += " " + setEmptySpacesTrailing(u.nation, nationLength)
 
         response = header
         for row in nations:
             response += "\n" + row
 
-        return self.printUserList() + "\n\n" + response
+        return response
 
     def tryWin(self, userIdsToCheck):
         if not re.match("^(?:\d+ ?)+$", userIdsToCheck.strip()):
