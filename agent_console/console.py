@@ -139,7 +139,7 @@ def printCommands(path):
                             "\n" + setEmptySpacesLeading("1", 2)     + " | " + setEmptySpacesTrailing("[k # viesti]", 13) + " | kirjoita sähke valtiolle #" + \
                             "\n" + setEmptySpacesLeading("5", 2)     + " | " + setEmptySpacesTrailing("[h #]", 13) + " | paljasta henkilön # valtio" + \
                             "\n" + setEmptySpacesLeading("2", 2)     + " | " + setEmptySpacesTrailing("[l #]", 13) + " | paljasta valtion # todellinen liitto" + \
-                            "\n" + setEmptySpacesLeading("6", 2)     + " | " + setEmptySpacesTrailing("[salaisuus]", 13) + " | tiimillesi paljastetaan salaisuus" + \
+                            "\n" + setEmptySpacesLeading("6", 2)     + " | " + setEmptySpacesTrailing("[salaisuus]", 13) + " | liitollesi paljastetaan salaisuus" + \
                             "\n" + setEmptySpacesLeading("0", 2)     + " | " + setEmptySpacesTrailing("[voita]", 13) + " | ohjeet voittamiseen" + \
                             "\n" + setEmptySpacesLeading("5", 2)     + " | " + setEmptySpacesTrailing("[voita # ...]", 13) + " | yritä voittoa liitollesi, ks. ohjeet!" + \
                             "\n" + \

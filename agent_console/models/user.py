@@ -132,7 +132,7 @@ class User(db.Model, UserMixin):
               playerInfo += \
               "\n" + "valeliitto: " + Alliance.getAlliance(self.fakeAlliance).name
         playerInfo += \
-              "\n" + "viestejä:   " + str(len(self.getMessages())) + \
+              "\n" + "sähkeitä:   " + str(len(self.getMessages())) + \
               "\n" + "lukematta:  " + str(self.getUnreadMessagesAmount())
         
         tasks = Task.query.filter_by(done=self.id).all()
@@ -378,7 +378,7 @@ class User(db.Model, UserMixin):
 
     def printPlayerList(self):
         alliances = Alliance.query.all()
-        fakeAllianceText = "Liitto"
+        fakeAllianceText = "liitto"
         fakeAllianceNameLength = len(fakeAllianceText)
         
         for a in alliances:
