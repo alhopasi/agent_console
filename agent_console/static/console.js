@@ -38,6 +38,7 @@ term.prompt = () => {
 
 socket.on('message', function (msg) {
     response = JSON.parse(msg).response;
+    if (response == "Kirjautuminen epäonnistui" && user != "") { path = ""; user = ""; }
     if (response.match("console.info ")) { infoTerm.write(response.split("console.info ")[1] + "\r\n"); return; }
     if (response.match("console.clear")) { term.clear(); return; }
     if (response.match("console.resetPath")) { path = ""; return; }
@@ -45,10 +46,10 @@ socket.on('message', function (msg) {
     if (response.match("console.changeUser")) { user = response.split("changeUser ")[1]; return; }
     if (response.match("console.logout")) { user = ""; return; }
     if (response.match("console.end")) { 
-        info = "";
-        if (user != "") {info = user + " "};
-        if (path != "") {info = user + ":" + path + " "};
-        term.write("\r\n" + info + "> "); return;
+        cmdline = "";
+        if (user != "") {cmdline = user + " "};
+        if (path != "") {cmdline = user + ":" + path + " "};
+        term.write("\r\n" + cmdline + "> "); return;
     }
     term.write(response + "\r\n");
 });
