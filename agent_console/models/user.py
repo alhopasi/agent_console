@@ -499,8 +499,8 @@ class User(db.Model, UserMixin):
         challengesWidth = 8
         playerAlliancesKnownWidth = len("tieto pelaajan liitosta")
         for u in users:
+            if userColumnSizes[0] < len(u.name): userColumnSizes[0] = len(u.name)
             if u.role != "npc":
-                if userColumnSizes[0] < len(u.name): userColumnSizes[0] = len(u.name)
                 if userColumnSizes[1] < len(u.password): userColumnSizes[1] = len(u.password)
                 if userColumnSizes[2] < len(u.nation): userColumnSizes[2] = len(u.nation)
             if u.role == "player":
