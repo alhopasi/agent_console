@@ -346,7 +346,8 @@ class User(db.Model, UserMixin):
                         else: nation = u.nation
                     usersList[i % rows] += " " + setEmptySpacesTrailing(nation, nationLength)
 
-        response = header
+        info = "Huom! Tässä ovat kaikki juhliin osallistujat. Kaikki eivät ole agentteja!"
+        response = info + "\n" + header
         for row in usersList:
             response += "\n" + row
         return response

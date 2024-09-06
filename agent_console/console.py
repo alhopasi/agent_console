@@ -115,7 +115,7 @@ def printCommands(path):
         commands += "\n" + "[.] - päävalikkoon"
         if current_user.role == "player":
             commands += "\n" + "[i] - pelaajan info" + \
-                        "\n" + "[p] - pelaajat" + \
+                        "\n" + "[p] - pelaajat / henkilöt" + \
                         "\n" + "[v] - valtiot"
         commands += "\n" + "[!] - kirjaudu ulos"
 
