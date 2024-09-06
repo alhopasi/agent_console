@@ -310,7 +310,7 @@ class User(db.Model, UserMixin):
         users = self.getUserList()
         response = ""
 
-        rows = 5
+        rows = 10
         if len(users) < rows:
             rows = len(users)
 
@@ -389,7 +389,7 @@ class User(db.Model, UserMixin):
         for p in players:
             if len(p.nation) + 1 > nationLength: nationLength = len(p.nation) + 1
         
-        rows = 5
+        rows = 10
         if len(players) < rows:
             rows = len(players)
 
