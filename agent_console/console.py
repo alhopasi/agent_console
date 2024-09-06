@@ -328,8 +328,8 @@ def handleMessage(command, path):
     try:
         if command == "get_info":
             return game.getInfo()
-        if current_user.is_authenticated: print(current_user.name + ":" + path + " > " + command)
-        else: print(" > " + command)
+        if current_user.is_authenticated: print(current_user.name + ":" + path + " > " + command, flush=True)
+        else: print(" > " + command, flush=True)
         if not parseMessage(command): return "No cheating!"
         if not current_user.is_authenticated and path != "":
             return "console.resetPath" + "\n" + "console.clear" + "\n" + "console.logout" + "\n" + printTitle() + "\n\n" + "Sessio katkennut, kirjaudu uudelleen."
@@ -473,5 +473,5 @@ def handleMessage(command, path):
 
         return "Tuntematon komento - [?] näyttää komennot"
     except Exception as e:
-        print("VIRHE: " + current_user.name + ":" + path + " > " + command + " | " + str(e))
+        print("VIRHE: " + current_user.name + ":" + path + " > " + command + " | " + str(e), flush=True)
         return "Virhe - kokeile uudestaan"
