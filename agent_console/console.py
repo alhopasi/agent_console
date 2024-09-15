@@ -355,7 +355,7 @@ def handleMessage(command, path):
                     if current_user.tryClaimChallenge(command) == "1":
                         return game.updateChallengeInfo(1, current_user)
                 if path == "sähkeet":
-                    if command == "v": return current_user.messagesList()
+                    if command == "s": return current_user.messagesList()
                     if re.match("\d+", command): return current_user.messagesRead(command)
                 if path == "tehtävät":
                     if command == "t": return Task.listTasks()
